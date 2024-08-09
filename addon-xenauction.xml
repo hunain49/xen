@@ -1,0 +1,2714 @@
+<?xml version="1.0" encoding="utf-8"?>
+<addon addon_id="xenauction" title="XenAuction" version_string="1.2.2" version_id="19" url="" install_callback_class="XenAuction_Install" install_callback_method="install" uninstall_callback_class="XenAuction_Install" uninstall_callback_method="uninstall">
+  <admin_navigation>
+    <navigation navigation_id="auctionBids" parent_navigation_id="auctions" display_order="10" link="auction-bids" admin_permission_id="option" debug_only="0" hide_no_children="0"/>
+    <navigation navigation_id="auctions" parent_navigation_id="applications" display_order="100" link="auction-bids" admin_permission_id="option" debug_only="0" hide_no_children="0"/>
+  </admin_navigation>
+  <admin_permissions/>
+  <admin_style_properties/>
+  <admin_templates>
+    <template title="auction_bids"><![CDATA[<xen:title>{xen:phrase recent_bids}</xen:title>
+
+<xen:require css="auction_bids.css" />
+
+<xen:if is="{$auctions}">
+<table class="dataTable auctionBids">
+	<tr class="dataRow">
+		<th class="bidId"></th>
+		<th class="auctionTitle">{xen:phrase auction}</th>
+		<th class="bidUser">{xen:phrase user}</th>
+		<th class="bidAmount">{xen:phrase amount}</th>
+		<th class="bidStatus">{xen:phrase status}</th>
+		<th class="bidDateActions" colspan="2">
+			<div class="FilterControls">
+				<form method="POST" action="{xen:adminlink 'auction-bids'}">
+					<input type="search" name="search" value="{$search}" placeholder="{xen:phrase filter_items}" class="textCtrl" id="ctrl_filter">
+					<input type="hidden" name="_xfToken" value="{$visitor.csrf_token_page}" />
+				</form>
+			</div>
+		</th>
+	</tr>
+	<xen:foreach loop="$auctions" value="$auction">
+		<tr class="dataRow">
+			<td>#{$auction.bid_id}</td>
+			<td>
+				<a href="{xen:link auctions/details, '', 'id={$auction.auction_id}'}" target="_blank">
+					{$auction.title}
+				</a>
+				 <span class="muted">({$auction.auction_id})</span>
+			</td>
+			<td>
+				<a href="{xen:adminlink 'users/edit', {$users.{$auction.bid_user_id}}}">
+					{$users.{$auction.bid_user_id}.username}
+				</a>
+			</td>
+			<td>${xen:number $auction.amount}</td>
+			<td>{$auction.bid_status}</td>
+			<td>
+				<div class="DateTime muted">{xen:date {$auction.bid_date}} {xen:time {$auction.bid_date}}</div>
+			</td>
+			<td class="dataOptions">
+				<xen:if is="{$auction.top_bid}=={$auction.amount} && {$auction.status}=='active'">
+					<a href="{xen:adminlink auction-bids/reject, '', 'id={$auction.bid_id}'}" class="secondaryContent OverlayTrigger">{xen:phrase reject}</a>
+				</xen:if>
+			</td>
+		</tr>
+	</xen:foreach>
+	<tr>
+		<td colspan="7" class="sectionFooter">{xen:phrase showing_x_of_y_items, 'count={xen:count $auctions}', 'total={xen:number $total}'}</td>
+	</tr>
+</table>
+
+	{xen:adminpagenav $perPage, $total, $page, auction-bids, ''}
+<xen:else />
+	{xen:phrase no_bids_found}
+</xen:if>]]></template>
+    <template title="auction_bids.css"><![CDATA[
+
+.auctionBids th.bidDateActions
+{
+	padding: 0 10px !important;
+}
+
+.auctionBids td.dataOptions
+{
+	max-width: 100px;
+}
+
+.auctionBids th.bidDateActions > span
+{
+	display: block;
+	margin-top: 6px;
+}
+
+.auctionBids th.bidDateActions .FilterControls
+{
+	float: right;
+}]]></template>
+    <template title="auction_reject_bid"><![CDATA[<xen:title>{xen:phrase confirm_rejection_of_bid}: #{$auction.bid_id}</xen:title>
+<xen:h1>{xen:phrase confirm_rejection_of_bid}</xen:h1>
+
+<xen:navigation>
+	<xen:breadcrumb href="{xen:adminlink 'auction-bids'}">{xen:phrase recent_bids}</xen:breadcrumb>
+</xen:navigation>
+
+<xen:require css="delete_confirmation.css" />
+
+<xen:form action="{xen:adminlink 'auction-bids/reject'}" class="deleteConfirmForm formOverlay">
+
+	<p>{xen:phrase please_confirm_that_you_want_to_reject_following_bid}:</p>
+
+	<div class="pairsRows" style="margin: 10px 20px;">
+		<dl>
+			<dt class="label">{xen:phrase auction}:</dt>
+			<dd>{$auction.title}</dd>
+		</dl>
+		<dl>
+			<dt class="label">{xen:phrase user}:</dt>
+			<dd>{$user.username}</dd>
+		</dl>
+		<dl>
+			<dt class="label">{xen:phrase amount}:</dt>
+			<dd>{$auction.amount}</dd>
+		</dl>
+	</div>
+
+	<xen:submitunit save="{xen:phrase reject_bid}" />
+	
+	<input type="hidden" name="id" value="{$auction.bid_id}" />
+	<input type="hidden" name="_xfConfirm" value="1" />
+	
+</xen:form>]]></template>
+  </admin_templates>
+  <code_events/>
+  <code_event_listeners>
+    <listener event_id="front_controller_pre_dispatch" execute_order="10" callback_class="XenAuction_Listen" callback_method="front_controller_pre_dispatch" active="1" description=""/>
+    <listener event_id="init_dependencies" execute_order="10" callback_class="XenAuction_Listen" callback_method="init_dependecies" active="1" description=""/>
+    <listener event_id="load_class_model" execute_order="10" callback_class="XenAuction_Listen" callback_method="load_class_model" active="1" description=""/>
+    <listener event_id="load_class_view" execute_order="10" callback_class="XenAuction_Listen" callback_method="load_class_view" active="1" description=""/>
+    <listener event_id="navigation_tabs" execute_order="10" callback_class="XenAuction_Listen" callback_method="navigation_tabs" active="1" description=""/>
+    <listener event_id="template_create" execute_order="10" callback_class="XenAuction_Listen" callback_method="template_create" active="1" description=""/>
+    <listener event_id="template_hook" execute_order="10" callback_class="XenAuction_Listen" callback_method="template_hook" active="1" description=""/>
+  </code_event_listeners>
+  <cron>
+    <entry entry_id="auctions" cron_class="XenAuction_CronEntry_Auction" cron_method="runExpireAuctions" active="1"><![CDATA[{"day_type":"dom","dom":["-1"],"hours":["-1"],"minutes":["-1"]}]]></entry>
+  </cron>
+  <email_templates/>
+  <optiongroups>
+    <group group_id="auctions" display_order="5000" debug_only="0"/>
+    <option option_id="auctionNotificationSender" edit_format="textbox" data_type="unsigned_integer" can_backup="1">
+      <default_value>1</default_value>
+      <edit_format_params></edit_format_params>
+      <sub_options></sub_options>
+      <relation group_id="auctions" display_order="1"/>
+    </option>
+    <option option_id="auctionShippingPrice" edit_format="textbox" data_type="numeric" can_backup="1">
+      <default_value>0</default_value>
+      <edit_format_params></edit_format_params>
+      <sub_options></sub_options>
+      <relation group_id="auctions" display_order="110"/>
+    </option>
+    <option option_id="auctionsPerPage" edit_format="spinbox" data_type="unsigned_numeric" can_backup="1">
+      <default_value>15</default_value>
+      <edit_format_params></edit_format_params>
+      <sub_options></sub_options>
+      <relation group_id="auctions" display_order="200"/>
+    </option>
+    <option option_id="auctionTagMode" edit_format="radio" data_type="string" can_backup="1">
+      <default_value>list</default_value>
+      <edit_format_params>list=List Mode (shows vertical list of links)
+dropdown=Dropdown Mode (uses &lt;a href="http://harvesthq.github.com/chosen/"&gt;chosen.js&lt;/a&gt;)</edit_format_params>
+      <sub_options></sub_options>
+      <relation group_id="auctions" display_order="210"/>
+    </option>
+    <option option_id="auctionWidgetCriteria" edit_format="textbox" data_type="string" can_backup="1">
+      <default_value>forums|create-thread
+auctions</default_value>
+      <edit_format_params>rows=4
+inputclass=Elastic</edit_format_params>
+      <sub_options></sub_options>
+      <relation group_id="auctions" display_order="440"/>
+    </option>
+    <option option_id="auctionWidgetEnabled" edit_format="onoff" data_type="boolean" can_backup="1">
+      <default_value></default_value>
+      <edit_format_params></edit_format_params>
+      <sub_options></sub_options>
+      <relation group_id="auctions" display_order="400"/>
+    </option>
+    <option option_id="auctionWidgetMode" edit_format="radio" data_type="string" can_backup="1">
+      <default_value>blacklist</default_value>
+      <edit_format_params>whitelist=Whitelist
+blacklist=Blacklist</edit_format_params>
+      <sub_options></sub_options>
+      <relation group_id="auctions" display_order="420"/>
+    </option>
+    <option option_id="auctionWidgetPlacement" edit_format="select" data_type="string" can_backup="1">
+      <default_value>above|page_container_breadcrumb_top</default_value>
+      <edit_format_params>above|body=Above All Content
+below|body=Below All Content
+above|page_container_content_top=Above Content Container
+below|page_container_content_top=Below Content Container
+above|ad_above_top_breadcrumb=Above Top Breadcrumb Ads
+below|ad_below_top_breadcrumb=Below Top Breadcrumb Ads
+above|page_container_breadcrumb_top=Above Top Breadcrumbs
+below|page_container_breadcrumb_top=Below Top Breadcrumbs
+above|page_container_notices=Above Notices Container
+below|page_container_notices=Below Notices Container
+above|page_container_content_title_bar=Above Content Title Bar
+below|page_container_content_title_bar=Below Content Title Bar
+above|page_container_sidebar=Top Of Sidebar
+below|page_container_sidebar=Bottom Of Sidebar
+above|page_container_breadcrumb_bottom=Above Bottom Breadcrumbs
+below|page_container_breadcrumb_bottom=Below Bottom Breadcrumbs</edit_format_params>
+      <sub_options></sub_options>
+      <relation group_id="auctions" display_order="410"/>
+    </option>
+  </optiongroups>
+  <permissions>
+    <permission_groups>
+      <permission_group permission_group_id="auctions"/>
+    </permission_groups>
+    <permissions>
+      <permission permission_group_id="auctions" permission_id="bidOnAuctions" permission_type="flag" depend_permission_id="viewAuctions" default_value="unset" interface_group_id="auctions" display_order="21"/>
+      <permission permission_group_id="auctions" permission_id="buyoutAuctions" permission_type="flag" depend_permission_id="viewAuctions" default_value="unset" interface_group_id="auctions" display_order="22"/>
+      <permission permission_group_id="auctions" permission_id="createAuctions" permission_type="flag" depend_permission_id="viewAuctions" default_value="unset" interface_group_id="auctions" display_order="30"/>
+      <permission permission_group_id="auctions" permission_id="editOthersAuctions" permission_type="flag" depend_permission_id="viewAuctions" default_value="unset" interface_group_id="auctions" display_order="50"/>
+      <permission permission_group_id="auctions" permission_id="editOwnAuctions" permission_type="flag" depend_permission_id="viewAuctions" default_value="unset" interface_group_id="auctions" display_order="40"/>
+      <permission permission_group_id="auctions" permission_id="expireOthersAuctions" permission_type="flag" depend_permission_id="viewAuctions" default_value="unset" interface_group_id="auctions" display_order="52"/>
+      <permission permission_group_id="auctions" permission_id="expireOwnAuctions" permission_type="flag" depend_permission_id="viewAuctions" default_value="unset" interface_group_id="auctions" display_order="51"/>
+      <permission permission_group_id="auctions" permission_id="searchAuctions" permission_type="flag" depend_permission_id="viewAuctions" default_value="unset" interface_group_id="auctions" display_order="20"/>
+      <permission permission_group_id="auctions" permission_id="viewAuctions" permission_type="flag" default_value="unset" interface_group_id="auctions" display_order="10"/>
+    </permissions>
+    <interface_groups>
+      <interface_group interface_group_id="auctions" display_order="1"/>
+    </interface_groups>
+  </permissions>
+  <phrases>
+    <phrase title="active_bids" version_id="0" version_string=""><![CDATA[Active Bids]]></phrase>
+    <phrase title="admin_navigation_auctionBids" version_id="14" version_string="1.0 RC1"><![CDATA[Manage Bids]]></phrase>
+    <phrase title="admin_navigation_auctions" version_id="14" version_string="1.0 RC1"><![CDATA[Auctions]]></phrase>
+    <phrase title="advanced" version_id="0" version_string=""><![CDATA[Advanced]]></phrase>
+    <phrase title="amount_paid" version_id="0" version_string=""><![CDATA[Amount Paid]]></phrase>
+    <phrase title="archived" version_id="0" version_string=""><![CDATA[Archived]]></phrase>
+    <phrase title="archived_auctions" version_id="0" version_string=""><![CDATA[Archived Auctions]]></phrase>
+    <phrase title="archive_auction" version_id="0" version_string=""><![CDATA[Archive Auction]]></phrase>
+    <phrase title="auction" version_id="0" version_string=""><![CDATA[Auction]]></phrase>
+    <phrase title="auctions" global_cache="1" version_id="0" version_string=""><![CDATA[Auctions]]></phrase>
+    <phrase title="auction_has_expired" version_id="16" version_string="1.2 Beta 1"><![CDATA[Auction has expired]]></phrase>
+    <phrase title="auction_history" version_id="0" version_string=""><![CDATA[Auction History]]></phrase>
+    <phrase title="auction_list" global_cache="1" version_id="0" version_string=""><![CDATA[Auction List]]></phrase>
+    <phrase title="auction_notification_signature" version_id="0" version_string=""><![CDATA[]]></phrase>
+    <phrase title="auction_status" version_id="0" version_string=""><![CDATA[Auction Status]]></phrase>
+    <phrase title="auction_title" version_id="0" version_string=""><![CDATA[Auction Title]]></phrase>
+    <phrase title="availability" version_id="0" version_string=""><![CDATA[Availability]]></phrase>
+    <phrase title="availability_too_high" version_id="0" version_string=""><![CDATA[You can't use an availability higher than 1 if you are also allowing bids]]></phrase>
+    <phrase title="available" version_id="0" version_string=""><![CDATA[Available]]></phrase>
+    <phrase title="bid" version_id="0" version_string=""><![CDATA[Bid]]></phrase>
+    <phrase title="bidding_on_x" version_id="0" version_string=""><![CDATA[Bidding on {title}]]></phrase>
+    <phrase title="bids" version_id="0" version_string=""><![CDATA[Bids]]></phrase>
+    <phrase title="bids_availability" version_id="0" version_string=""><![CDATA[Bids / Availability]]></phrase>
+    <phrase title="bids_on_your_auctions" version_id="0" version_string=""><![CDATA[Bids on your Auctions]]></phrase>
+    <phrase title="bid_history" version_id="0" version_string=""><![CDATA[Bid History]]></phrase>
+    <phrase title="bid_must_be_higher" version_id="0" version_string=""><![CDATA[Your bid must be higher than the current bid]]></phrase>
+    <phrase title="bid_on_x_by_y" version_id="0" version_string=""><![CDATA[Bid on {auction} by {username}]]></phrase>
+    <phrase title="bought_auction_message" version_id="17" version_string="1.2 Beta 1"><![CDATA[Thank you for purchasing [i]{title}[/i].
+
+[b]Quantity:[/b] {quantity}
+[b]Cost:[/b] ${amount}
+
+[url={invoice_link}]View Invoice[/url]
+
+{payment_address}]]></phrase>
+    <phrase title="bought_auction_x" version_id="0" version_string=""><![CDATA[Auction Bought: {title}]]></phrase>
+    <phrase title="buy" version_id="0" version_string=""><![CDATA[Buy]]></phrase>
+    <phrase title="buyer" version_id="0" version_string=""><![CDATA[Buyer]]></phrase>
+    <phrase title="buying_auctions" version_id="0" version_string=""><![CDATA[Buying Auctions]]></phrase>
+    <phrase title="buying_x" version_id="0" version_string=""><![CDATA[Buying {title}]]></phrase>
+    <phrase title="buyout" version_id="0" version_string=""><![CDATA[Buyout]]></phrase>
+    <phrase title="buyouts" version_id="0" version_string=""><![CDATA[Buyouts]]></phrase>
+    <phrase title="buyout_too_low" version_id="0" version_string=""><![CDATA[The buyout price is too low]]></phrase>
+    <phrase title="buy_now" version_id="0" version_string=""><![CDATA[Buy Now]]></phrase>
+    <phrase title="canceled" version_id="0" version_string=""><![CDATA[Canceled]]></phrase>
+    <phrase title="cant_buy_own_auction" version_id="0" version_string=""><![CDATA[You cannot buy your own auctions]]></phrase>
+    <phrase title="cant_buy_zero" version_id="0" version_string=""><![CDATA[Entered quantity is too low]]></phrase>
+    <phrase title="can_not_reject_bids_on_expired_auctions" version_id="0" version_string=""><![CDATA[You can not reject bids on expired auctions]]></phrase>
+    <phrase title="can_only_reject_winning_bids" version_id="0" version_string=""><![CDATA[You can only reject winning bids]]></phrase>
+    <phrase title="choose_tags" version_id="0" version_string=""><![CDATA[Choose Tags]]></phrase>
+    <phrase title="completed" version_id="0" version_string=""><![CDATA[Completed]]></phrase>
+    <phrase title="completed_purchases" version_id="0" version_string=""><![CDATA[Completed Purchases]]></phrase>
+    <phrase title="completed_sales" version_id="0" version_string=""><![CDATA[Completed Sales]]></phrase>
+    <phrase title="complete_auction" version_id="0" version_string=""><![CDATA[Complete Auction]]></phrase>
+    <phrase title="complete_sale" version_id="0" version_string=""><![CDATA[Complete Sale]]></phrase>
+    <phrase title="confirm_rejection_of_bid" version_id="15" version_string="1.0.1"><![CDATA[Confirm Rejection of Bid]]></phrase>
+    <phrase title="copies_to_create" version_id="0" version_string=""><![CDATA[Copies to create]]></phrase>
+    <phrase title="create_auction" global_cache="1" version_id="0" version_string=""><![CDATA[Create Auction]]></phrase>
+    <phrase title="creating_auctions" version_id="0" version_string=""><![CDATA[Creating Auctions]]></phrase>
+    <phrase title="cron_entry_auctions" version_id="0" version_string=""><![CDATA[Expire Auctions]]></phrase>
+    <phrase title="date_is_in_past" version_id="0" version_string=""><![CDATA[You selected a date that is in the past]]></phrase>
+    <phrase title="days_left" version_id="15" version_string="1.1 Beta 1"><![CDATA[Days]]></phrase>
+    <phrase title="edit_auction" version_id="0" version_string=""><![CDATA[Edit Auction]]></phrase>
+    <phrase title="enable_bids" version_id="0" version_string=""><![CDATA[Enable Bids]]></phrase>
+    <phrase title="enable_buyouts" version_id="0" version_string=""><![CDATA[Enable Buyouts]]></phrase>
+    <phrase title="enter_availability_higher_than_zero" version_id="0" version_string=""><![CDATA[Please enter an availability higher than zero]]></phrase>
+    <phrase title="expires_in" version_id="0" version_string=""><![CDATA[Expires in]]></phrase>
+    <phrase title="expire_auction" version_id="0" version_string=""><![CDATA[Expire Auction]]></phrase>
+    <phrase title="filter_by_tag" version_id="0" version_string=""><![CDATA[Filter by tag]]></phrase>
+    <phrase title="find_auction" version_id="0" version_string=""><![CDATA[Find Auction]]></phrase>
+    <phrase title="finished" version_id="0" version_string=""><![CDATA[Finished]]></phrase>
+    <phrase title="history" global_cache="1" version_id="0" version_string=""><![CDATA[History]]></phrase>
+    <phrase title="hours_left" version_id="15" version_string="1.1 Beta 1"><![CDATA[Hours]]></phrase>
+    <phrase title="invalid_buy_action" version_id="0" version_string=""><![CDATA[Action not allowed on this type of auction]]></phrase>
+    <phrase title="keyword_or_id" version_id="0" version_string=""><![CDATA[Keyword or ID]]></phrase>
+    <phrase title="keyword_tag" version_id="0" version_string=""><![CDATA[Keyword / Tag]]></phrase>
+    <phrase title="lost_auction_message" version_id="0" version_string=""><![CDATA[Unfortunately someone else has bought the auction you were bidding on.]]></phrase>
+    <phrase title="lost_auction_x" version_id="0" version_string=""><![CDATA[Lost Auction: {title}]]></phrase>
+    <phrase title="minutes_left" version_id="15" version_string="1.1 Beta 1"><![CDATA[Minutes]]></phrase>
+    <phrase title="min_bid_too_low" version_id="0" version_string=""><![CDATA[The minimum bid is too low]]></phrase>
+    <phrase title="must_use_bid_or_buyout" version_id="0" version_string=""><![CDATA[You have to select either a bid or a buyout value]]></phrase>
+    <phrase title="my_activity" version_id="0" version_string=""><![CDATA[My Activity]]></phrase>
+    <phrase title="no_auctions_found" version_id="0" version_string=""><![CDATA[No auctions were found]]></phrase>
+    <phrase title="no_bids" version_id="0" version_string=""><![CDATA[No bids]]></phrase>
+    <phrase title="no_bids_found" version_id="0" version_string=""><![CDATA[No bids could be found]]></phrase>
+    <phrase title="option_auctionNotificationSender" version_id="0" version_string=""><![CDATA[User ID that sends notifications]]></phrase>
+    <phrase title="option_auctionNotificationSender_explain" version_id="0" version_string=""><![CDATA[Enter the ID of the user that will be used to send auction notifications. Note that this user should NOT participate in any other part of the auctions (eg. bidding, buying and creating auctions).]]></phrase>
+    <phrase title="option_auctionShippingPrice" version_id="17" version_string="1.2 Beta 1"><![CDATA[Shipping Price]]></phrase>
+    <phrase title="option_auctionShippingPrice_explain" version_id="17" version_string="1.2 Beta 1"><![CDATA[]]></phrase>
+    <phrase title="option_auctionsPerPage" version_id="0" version_string=""><![CDATA[Auctions Per Page]]></phrase>
+    <phrase title="option_auctionsPerPage_explain" version_id="0" version_string=""><![CDATA[Auctions to show per page]]></phrase>
+    <phrase title="option_auctionTagMode" version_id="12" version_string="1.0 Beta 4 (build 1)"><![CDATA[Tag Display Mode]]></phrase>
+    <phrase title="option_auctionTagMode_explain" version_id="12" version_string="1.0 Beta 4 (build 1)"><![CDATA[How you want tags to be shown, if you expect to have a large amount of tags it's best to select "Dropdown Mode"]]></phrase>
+    <phrase title="option_auctionWidgetCriteria" version_id="12" version_string="1.0 Beta 4 (build 1)"><![CDATA[Widget Display Criteria]]></phrase>
+    <phrase title="option_auctionWidgetCriteria_explain" version_id="12" version_string="1.0 Beta 4 (build 1)"><![CDATA[Enter the prefixes that should trigger or prevent the widget (see Display Mode option above). Separate by new line.]]></phrase>
+    <phrase title="option_auctionWidgetEnabled" version_id="12" version_string="1.0 Beta 4 (build 1)"><![CDATA[Enable Random Auctions Widget]]></phrase>
+    <phrase title="option_auctionWidgetEnabled_explain" version_id="12" version_string="1.0 Beta 4 (build 1)"><![CDATA[Once enabled, place the following code in your templates where you want the widget to appear:
+
+&lt;xen:include template="auction_widget" /&gt;]]></phrase>
+    <phrase title="option_auctionWidgetMode" version_id="12" version_string="1.0 Beta 4 (build 1)"><![CDATA[Widget Display Mode]]></phrase>
+    <phrase title="option_auctionWidgetMode_explain" version_id="12" version_string="1.0 Beta 4 (build 1)"><![CDATA[Whitelist mode will only show the widget on pages that match the prefixes defined below, whereas Blacklist mode will show the widget on all pages EXCEPT the ones defined below.]]></phrase>
+    <phrase title="option_auctionWidgetPlacement" version_id="12" version_string="1.0 Beta 4 (build 1)"><![CDATA[Widget Placement]]></phrase>
+    <phrase title="option_auctionWidgetPlacement_explain" version_id="12" version_string="1.0 Beta 4 (build 1)"><![CDATA[Choose the template hook where the auction widget should be placed]]></phrase>
+    <phrase title="option_group_auctions" version_id="0" version_string=""><![CDATA[Auctions]]></phrase>
+    <phrase title="option_group_auctions_description" version_id="0" version_string=""><![CDATA[]]></phrase>
+    <phrase title="outbid" version_id="0" version_string=""><![CDATA[Outbid]]></phrase>
+    <phrase title="outbid_message" version_id="13" version_string="1.0 Beta 5 (build 1)"><![CDATA[Unfortunately, you have been outbid on [url='{link}']{title}[/url]. 
+
+The new top bid is: ${top_bid}.]]></phrase>
+    <phrase title="outbid_on_x" version_id="0" version_string=""><![CDATA[Outbid on: {title}]]></phrase>
+    <phrase title="paying" version_id="0" version_string=""><![CDATA[Paying]]></phrase>
+    <phrase title="pending" version_id="0" version_string=""><![CDATA[Pending]]></phrase>
+    <phrase title="pending_purchases" version_id="0" version_string=""><![CDATA[Pending Purchases]]></phrase>
+    <phrase title="pending_sales" version_id="0" version_string=""><![CDATA[Pending Sales]]></phrase>
+    <phrase title="permission_auctions_bidOnAuctions" version_id="0" version_string=""><![CDATA[Bid On Auctions]]></phrase>
+    <phrase title="permission_auctions_buyoutAuctions" version_id="0" version_string=""><![CDATA[Buyout Auctions]]></phrase>
+    <phrase title="permission_auctions_createAuctions" version_id="0" version_string=""><![CDATA[Create Auctions]]></phrase>
+    <phrase title="permission_auctions_editOthersAuctions" version_id="13" version_string="1.0 Beta 5 (build 1)"><![CDATA[Edit Others Auctions]]></phrase>
+    <phrase title="permission_auctions_editOwnAuctions" version_id="13" version_string="1.0 Beta 5 (build 1)"><![CDATA[Edit Own Auctions]]></phrase>
+    <phrase title="permission_auctions_expireOthersAuctions" version_id="13" version_string="1.0 Beta 5 (build 1)"><![CDATA[Expire Others Auctions]]></phrase>
+    <phrase title="permission_auctions_expireOwnAuctions" version_id="13" version_string="1.0 Beta 5 (build 1)"><![CDATA[Expire Own Auctions]]></phrase>
+    <phrase title="permission_auctions_searchAuctions" version_id="0" version_string=""><![CDATA[Search Auctions]]></phrase>
+    <phrase title="permission_auctions_viewAuctions" version_id="0" version_string=""><![CDATA[View Auctions]]></phrase>
+    <phrase title="permission_group_auctions" version_id="0" version_string=""><![CDATA[Auctions]]></phrase>
+    <phrase title="permission_interface_auctions" version_id="0" version_string=""><![CDATA[Auctions]]></phrase>
+    <phrase title="place_bid" version_id="0" version_string=""><![CDATA[Place Bid]]></phrase>
+    <phrase title="please_confirm_that_you_want_to_reject_following_bid" version_id="15" version_string="1.0.1"><![CDATA[Please confirm that you want to reject the following bid]]></phrase>
+    <phrase title="price" version_id="0" version_string=""><![CDATA[Price]]></phrase>
+    <phrase title="print_invoices" version_id="17" version_string="1.2 Beta 1"><![CDATA[Print Invoices]]></phrase>
+    <phrase title="print_selected_invoices" version_id="17" version_string="1.2 Beta 1"><![CDATA[Print Selected Invoices]]></phrase>
+    <phrase title="quantity" version_id="0" version_string=""><![CDATA[Quantity]]></phrase>
+    <phrase title="quantity_not_available" version_id="0" version_string=""><![CDATA[You are trying to buy a higher quantity than there is available]]></phrase>
+    <phrase title="random_auctions" version_id="0" version_string=""><![CDATA[Random Auctions]]></phrase>
+    <phrase title="recent_bids" version_id="0" version_string=""><![CDATA[Recent Bids]]></phrase>
+    <phrase title="reject" version_id="0" version_string=""><![CDATA[Reject]]></phrase>
+    <phrase title="reject_bid" version_id="0" version_string=""><![CDATA[Reject Bid]]></phrase>
+    <phrase title="requested_auction_not_found" version_id="0" version_string=""><![CDATA[Could not find the requested auction]]></phrase>
+    <phrase title="requested_bid_not_found" version_id="0" version_string=""><![CDATA[Requested bid not found]]></phrase>
+    <phrase title="sales" version_id="0" version_string=""><![CDATA[Sales]]></phrase>
+    <phrase title="sale_not_found" version_id="0" version_string=""><![CDATA[Could not find the requested sale]]></phrase>
+    <phrase title="sale_status" version_id="0" version_string=""><![CDATA[Sale Status]]></phrase>
+    <phrase title="sale_x_completed" version_id="0" version_string=""><![CDATA[Sale completed: {title}]]></phrase>
+    <phrase title="save_auction" version_id="0" version_string=""><![CDATA[Save Auction]]></phrase>
+    <phrase title="seconds_left" version_id="15" version_string="1.1 Beta 1"><![CDATA[Seconds]]></phrase>
+    <phrase title="select_one" version_id="0" version_string=""><![CDATA[Select One]]></phrase>
+    <phrase title="seller" version_id="0" version_string=""><![CDATA[Seller]]></phrase>
+    <phrase title="skip_message" version_id="0" version_string=""><![CDATA[Skip Message]]></phrase>
+    <phrase title="sold" version_id="0" version_string=""><![CDATA[Sold]]></phrase>
+    <phrase title="sold_out" version_id="0" version_string=""><![CDATA[Sold Out]]></phrase>
+    <phrase title="starting_bid" version_id="0" version_string=""><![CDATA[Starting Bid]]></phrase>
+    <phrase title="summary" version_id="0" version_string=""><![CDATA[Summary]]></phrase>
+    <phrase title="tags" version_id="0" version_string=""><![CDATA[Tags]]></phrase>
+    <phrase title="time_left" version_id="0" version_string=""><![CDATA[Time Left]]></phrase>
+    <phrase title="type" version_id="0" version_string=""><![CDATA[Type]]></phrase>
+    <phrase title="user_field_auctionConfirmMessage" global_cache="1" version_id="0" version_string=""><![CDATA[Default Auction Confirmation Message]]></phrase>
+    <phrase title="user_field_auctionConfirmMessage_desc" version_id="0" version_string=""><![CDATA[The confirmation message to be send to the winner of the auction when you archive the relevant auction. You can use the following tags: {username}, {title}, {link}, {price}, {quantity}]]></phrase>
+    <phrase title="user_field_auctionPaymentAddress" global_cache="1" version_id="0" version_string=""><![CDATA[Auction Payment Address]]></phrase>
+    <phrase title="user_field_auctionPaymentAddress_desc" version_id="0" version_string=""><![CDATA[Enter the address that purchasers are supposed to send their payments to.]]></phrase>
+    <phrase title="viewing_auctions" version_id="0" version_string=""><![CDATA[Viewing Auctions]]></phrase>
+    <phrase title="view_more" version_id="0" version_string=""><![CDATA[View More]]></phrase>
+    <phrase title="won" version_id="0" version_string=""><![CDATA[Won]]></phrase>
+    <phrase title="won_auction_message" version_id="17" version_string="1.2 Beta 1"><![CDATA[Congratulations! You have won [i]{title}[/i].
+
+[b]Your winning bid (cost):[/b] ${top_bid}
+
+[url={invoice_link}]View Invoice[/url]
+
+{payment_address}]]></phrase>
+    <phrase title="won_auction_x" version_id="0" version_string=""><![CDATA[Auction Won: {title}]]></phrase>
+    <phrase title="won_pending" version_id="15" version_string="1.1 Beta 1"><![CDATA[Won (pending)]]></phrase>
+    <phrase title="your_auctions" version_id="0" version_string=""><![CDATA[Your Auctions]]></phrase>
+    <phrase title="your_bid" version_id="0" version_string=""><![CDATA[Your Bid]]></phrase>
+    <phrase title="your_bids" version_id="0" version_string=""><![CDATA[Your Bids]]></phrase>
+    <phrase title="your_buyouts" version_id="0" version_string=""><![CDATA[Your Buyouts]]></phrase>
+    <phrase title="your_purchases" version_id="0" version_string=""><![CDATA[Your Purchases]]></phrase>
+    <phrase title="your_sales" version_id="0" version_string=""><![CDATA[Your Sales]]></phrase>
+    <phrase title="you_have_no_auctions" version_id="0" version_string=""><![CDATA[You have no active auctions]]></phrase>
+    <phrase title="you_have_no_bids" version_id="0" version_string=""><![CDATA[You have not placed any bids]]></phrase>
+    <phrase title="you_have_no_buyouts" version_id="0" version_string=""><![CDATA[You have not placed any buyouts]]></phrase>
+    <phrase title="you_have_no_purchases" version_id="0" version_string=""><![CDATA[You have no purchases]]></phrase>
+    <phrase title="you_have_no_sales" version_id="0" version_string=""><![CDATA[You have not made any sales yet]]></phrase>
+  </phrases>
+  <route_prefixes>
+    <route_type type="admin">
+      <prefix original_prefix="auction-bids" class="XenAuction_PrefixAdmin_Bid" build_link="all"/>
+    </route_type>
+    <route_type type="public">
+      <prefix original_prefix="auction-bid" class="XenAuction_RoutePrefix_Bid" build_link="all"/>
+      <prefix original_prefix="auction-history" class="XenAuction_RoutePrefix_History" build_link="all"/>
+      <prefix original_prefix="auction-process" class="XenAuction_RoutePrefix_Process" build_link="all"/>
+      <prefix original_prefix="auctions" class="XenAuction_RoutePrefix_Auctions" build_link="all"/>
+    </route_type>
+  </route_prefixes>
+  <style_properties/>
+  <templates>
+    <template title="auction_bid" version_id="13" version_string="1.0 Beta 5 (build 1)"><![CDATA[<xen:require css="auction_bid.css" />
+
+<xen:title>{xen:phrase bidding_on_x, 'title={$auction.title}'}</xen:title>
+
+<xen:navigation>
+    <xen:breadcrumb href="{xen:link 'auction-bid/bid', '', 'id={$auction.auction_id}'}">{xen:phrase place_bid}</xen:breadcrumb>
+</xen:navigation>
+
+<form action="{xen:link 'auction-bid/place-bid', '', 'id={$auction.auction_id}'}" class="xenForm formOverlay auctionBid auctionForm" method="post">
+	<input type="hidden" name="_xfToken" value="{$visitor.csrf_token_page}" />
+	<input type="hidden" name="id" value="{$auction.auction_id}"/>
+	
+	<input type="hidden" class="min_bid" value="{xen:if $auction.top_bid, {xen:calc '{$auction.top_bid} + 1'}, $auction.min_bid}"/>
+	
+	<xen:include template="auction_details_content" />
+	
+	<fieldset class="bid">
+		<dl class="ctrlUnit">
+			<dt>{xen:phrase your_bid}:</dt>
+			<dd>
+				$ <input type="text" name="bid" value="{xen:if $auction.top_bid, {xen:calc '{$auction.top_bid} + 1'}, $auction.min_bid}" class="textCtrl autoSize" size="20" maxlength="10" />
+			</dd>
+		</dl>
+
+	</fieldset>
+	
+	<dl class="ctrlUnit submitUnit">
+			<dt></dt>
+			<dd>
+				<input type="submit" value="{xen:phrase place_bid}" class="button primary" />
+			</dd>
+		</dl>
+
+</form>
+
+<script type="text/javascript"><!--
+new XenAuction.Bid;
+//--></script>]]></template>
+    <template title="auction_bid.css" version_id="0" version_string=""><![CDATA[.auctionBid .icon
+{
+	float: left;
+	width: 48px;
+	height: 48px;
+	background: url(./data/xenauction/image_s.png) center no-repeat;
+	margin: 5px 10px;
+}]]></template>
+    <template title="auction_buyout" version_id="13" version_string="1.0 Beta 5 (build 1)"><![CDATA[<xen:require css="auction_bid.css" />
+
+<xen:title>{xen:phrase buying_x, 'title={$auction.title}'}</xen:title>
+
+<xen:navigation>
+    <xen:breadcrumb href="{xen:link 'auction-bid/buyout', '', 'id={$auction.auction_id}'}">{xen:phrase buy_now}</xen:breadcrumb>
+</xen:navigation>
+
+<form action="{xen:link 'auction-bid/place-buyout', '', 'id={$auction.auction_id}'}" class="xenForm formOverlay auctionBid auctionForm" method="post">
+	<input type="hidden" name="_xfToken" value="{$visitor.csrf_token_page}" />
+	<input type="hidden" name="id" value="{$auction.auction_id}"/>
+	
+	<input type="hidden" class="cost" value="{$auction.buy_now}"/>
+	<input type="hidden" class="availability" value="{$auction.availability}"/>
+	
+	<xen:include template="auction_details_content" />
+
+	<fieldset class="bid">
+		<xen:if is="{$auction.availability} > 1">
+			<dl class="ctrlUnit">
+				<dt>{xen:phrase quantity}:</dt>
+				<dd>
+					<input type="text" name="quantity" value="1" class="textCtrl autoSize" size="20" maxlength="10" />
+				</dd>
+			</dl>
+		<xen:else/>
+			<input type="hidden" name="quantity" value="1" />
+		</xen:if>
+		<dl class="ctrlUnit">
+			<dt>{xen:phrase availability}:</dt>
+			<dd>
+				{$auction.availability}
+			</dd>
+		</dl>
+		<dl class="ctrlUnit">
+			<dt>{xen:phrase paying}:</dt>
+			<dd class="paying">
+				${$auction.buy_now}
+			</dd>
+		</dl>
+
+	</fieldset>
+	
+	<dl class="ctrlUnit submitUnit">
+			<dt></dt>
+			<dd>
+				<input type="submit" value="{xen:phrase buy_now}" class="button primary" />
+			</dd>
+		</dl>
+
+</form>
+
+<script type="text/javascript"><!--
+new XenAuction.Bid;
+//--></script>]]></template>
+    <template title="auction_complete" version_id="14" version_string="1.0 RC1"><![CDATA[<xen:require css="auction_complete.css" />
+<xen:require css="auction_details.css" />
+
+<xen:title>{xen:phrase complete_sale}: {$auction.title}</xen:title>
+
+<xen:navigation>
+    <xen:breadcrumb href="{xen:link 'auctions'}">{xen:phrase auctions}</xen:breadcrumb>
+    <xen:breadcrumb href="{xen:link 'auction-process/complete', '', 'id={$auction.bid_id}'}">{xen:phrase complete_sale}</xen:breadcrumb>
+</xen:navigation>
+
+<form action="{xen:link 'auction-process/mark-complete', '', 'id={$auction.bid_id}'}" class="xenForm formOverlay auctionForm auctionComplete" method="post">
+	<input type="hidden" name="_xfToken" value="{$visitor.csrf_token_page}" />
+	<input type="hidden" name="id" value="{$auction.bid_id}"/>
+	
+	<dl class="ctrlUnit">
+		<dt>{xen:phrase buyer}:</dt>
+		<dd>{$user.username}</dd>
+	</dl>
+	<dl class="ctrlUnit">
+		<dt>{xen:phrase message}:</dt>
+		<dd>
+			<textarea name="message" id="message" class="textCtrl Elastic" style="overflow: hidden; width: 100%; height: 200px; ">{$message}</textarea>
+		</dd>
+	</dl>
+
+	<dl class="ctrlUnit submitUnit">
+			<dt></dt>
+			<dd>
+				<input type="submit" value="{xen:phrase complete_sale}" class="button primary"/>
+				<a href="{xen:link 'auction-process/mark-complete', '', 'id={$auction.bid_id}'}" class="button primary">{xen:phrase skip_message}</a>
+			</dd>
+		</dl>
+	
+</form>]]></template>
+    <template title="auction_create" version_id="14" version_string="1.0 RC1"><![CDATA[<xen:require css="auction_create.css" />
+<xen:require css="auction_tags.css" />
+<xen:require js="js/xenauction/auctions.js" />
+<xen:require js="js/xenauction/chosen/chosen.jquery.js" />
+
+<xen:title>{xen:phrase create_auction}</xen:title>
+
+<xen:navigation>
+    <xen:breadcrumb href="{xen:link 'auction-process/create'}">{xen:phrase create_auction}</xen:breadcrumb>
+</xen:navigation>
+
+<!--<form action="{xen:link 'auction-process/add'}" method="post"
+	class="xenForm AutoValidator auction"
+	data-redirect="on"
+	enctype="multipart/form-data"
+>-->
+
+<form action="{xen:link 'auction-process/add'}" method="post"
+	class="xenForm auction"
+	enctype="multipart/form-data"
+>
+
+	<xen:hook name="auction_create">
+		
+	<dl class="ctrlUnit">
+		<dt><label for="ctrl_tags">{xen:phrase tags}:</label></dt>
+		<dd class="tagContainer">
+			<select name="tags[]" class="chzn-select" multiple="multiple" data-placeholder="{xen:phrase choose_tags}" style="width: {xen:calc '{xen:property formWidth} - {xen:property ctrlUnitLabelWidth} - {xen:property textCtrl.border-left-width} - {xen:property textCtrl.border-right-width} - {xen:property textCtrl.padding-left} - {xen:property textCtrl.padding-right} - {xen:property ctrlUnitEdgeSpacer}'}px">
+				<xen:foreach loop="$allTags" value="$tag">
+					<option value="{$tag.tag_id}">{$tag.name}</option>
+				</xen:foreach>
+			</select>
+		</dd>
+	</dl>	
+
+	<div class="summary">
+		
+		<dl class="ctrlUnit fullWidth surplusLabel">
+			<dt><label for="ctrl_title_thread_create">{xen:phrase title}:</label></dt>
+			<dd><input type="text" name="title" class="textCtrl titleCtrl" id="ctrl_title_auction_create" maxlength="100" autofocus="true"
+				placeholder="{xen:phrase auction_title}..." /></dd>
+		</dl>
+		
+		<dl class="ctrlUnit fullWidth">
+			<dt></dt>
+			<dd>{xen:raw $editorTemplate}</dd>
+		</dl>
+	</div>
+	
+	<div class="details">
+		
+		<h3 class="textHeading">{xen:phrase details}</h3>
+		
+		<dl class="ctrlUnit">
+			<dt>Image:</dt>
+			<dd><input type="file" name="image" /></dd>
+		</dl>
+		
+		<dl class="ctrlUnit">
+			<dt>{xen:phrase expires_in}:</dt>
+			<dd>
+				<input type="text" name="expires" class="textCtrl autoSize" value="3" size="5" maxlength="5" />
+				&nbsp;
+				{xen:phrase days}
+			</dd>
+		</dl>
+		
+		<dl class="ctrlUnit">
+			<dt>{xen:phrase starting_bid}:</dt>
+			<dd>
+				<input type="text" name="starting_bid" class="textCtrl autoSize" size="10" maxlength="10" disabled="disabled" />
+				<input type="checkbox" name="bid_enable" id="bid_enable" value="1" /> <label for="bid_enable">{xen:phrase enable_bids}</label>
+			</dd>
+		</dl>
+			
+		<dl class="ctrlUnit">
+			<dt>{xen:phrase buyout}:</dt>
+			<dd>
+				<input type="text" name="buyout" class="textCtrl autoSize" size="10" maxlength="10" disabled="disabled" />
+				<input type="checkbox" name="buyout_enable" id="buyout_enable" value="1" /> <label for="buyout_enable">{xen:phrase enable_buyouts}</label>
+			</dd>
+		</dl>
+		
+		<dl class="ctrlUnit" id="availability_wrap" style="display: none;">
+			<dt>{xen:phrase availability}:</dt>
+			<dd>
+				<input type="text" name="availability" class="textCtrl autoSize" placeholder="1" size="10" maxlength="10"/>
+			</dd>
+		</dl>
+		
+		<h3 class="textHeading">{xen:phrase advanced}</h3>
+		
+		<dl class="ctrlUnit" id="availability_wrap">
+			<dt>{xen:phrase copies_to_create}:</dt>
+			<dd>
+				<input type="text" name="batch" class="textCtrl autoSize" placeholder="1" size="10" maxlength="10"/>
+			</dd>
+		</dl>
+		
+	</div>
+	
+	<!-- slot: after_editor -->
+
+	<dl class="ctrlUnit submitUnit">
+		<dd>
+			<input type="submit" value="{xen:phrase create_auction}" accesskey="s" class="button primary" />
+		</dd>
+	</dl>
+
+	<input type="hidden" name="_xfToken" value="{$visitor.csrf_token_page}" />
+	
+	</xen:hook>
+	
+</form>
+
+<script type="text/javascript"><!--
+<xen:include template="auction_phrases_js"/>
+new XenAuction.Create;
+//--></script>]]></template>
+    <template title="auction_create.css" version_id="13" version_string="1.0 Beta 5 (build 1)"><![CDATA[.auction .summary .icon
+{
+	width: 30px;
+	height: 30px;
+	
+	margin: 20px 0 0 30px;
+	
+	float: left;
+}
+
+.textCtrl.titleCtrl
+{
+	margin-left: 30px !important;
+	width: {xen:calc "{xen:property formWidth} - {xen:property textCtrl.border-left-width} - {xen:property textCtrl.border-right-width} - {xen:property textCtrl.padding-left} - {xen:property textCtrl.padding-right} - 2 * {xen:property ctrlUnitEdgeSpacer}"}px !important;
+}
+
+.auction .details, .auction .ctrlUnit.submitUnit
+{
+	margin-top: 30px;
+}
+
+.auction .ctrlUnit.submitUnit dd
+{
+	width: 100%;
+	text-align: center;
+}
+
+.auction .details .ctrlUnit dt
+{
+}
+.ctrlUnit.double
+{
+	clear: both;
+}
+
+.ctrlUnit.double dt,
+.ctrlUnit.double dd
+{
+	float: left;
+}
+
+.ctrlUnit.double dd
+{
+	width: 100px;
+}
+
+label[for="ctrl_tags"]
+{
+	margin-top: 10px;
+	display: block;
+}
+
+/*
+.auction .chzn-container, .auction .tags
+{
+	width: {xen:calc "{xen:property formWidth} - {xen:property textCtrl.border-left-width} - {xen:property textCtrl.border-right-width} - {xen:property textCtrl.padding-left} - {xen:property textCtrl.padding-right} - 2 * {xen:property ctrlUnitEdgeSpacer}"}px;
+}
+
+	.xenOverlay .auction .chzn-container, .xenOverlay .auction .tags
+	{
+		width: {xen:calc "{xen:property overlayFormWidth} - {xen:property textCtrl.border-left-width} - {xen:property textCtrl.border-right-width} - {xen:property textCtrl.padding-left} - {xen:property textCtrl.padding-right} - 2 * {xen:property ctrlUnitEdgeSpacer}"}px;
+	}
+*/]]></template>
+    <template title="auction_details" version_id="16" version_string="1.2 Beta 1"><![CDATA[<xen:require css="auction_bid.css" />
+
+<xen:title>{$auction.title}</xen:title>
+
+<xen:navigation>
+    <xen:breadcrumb href="{xen:link 'auctions'}">{xen:phrase auctions}</xen:breadcrumb>
+    <xen:breadcrumb href="{xen:link 'auction-bid/bid', '', 'id={$auction.auction_id}'}">{xen:phrase place_bid}</xen:breadcrumb>
+</xen:navigation>
+
+<form class="xenForm formOverlay auctionForm auctionBid">
+
+	<xen:include template="auction_details_content" />
+
+
+	<dl class="ctrlUnit submitUnit">
+		<dd>
+			<xen:if is="{$auction.status}=='active' && {$visitor.user_id}!={$auction.user_id} && {xen:helper auction, hasPermission, 'bidOnAuctions||buyoutAuctions'}">
+				<xen:if is="{$auction.min_bid}">
+					<a class="OverlayTrigger button primary" href="{xen:link 'auction-bid/bid', '', 'id={$auction.auction_id}'}">{xen:phrase place_bid}</a>
+				</xen:if>
+				<xen:if is="{$auction.buy_now}">
+					<a class="OverlayTrigger button primary" href="{xen:link 'auction-bid/buyout', '', 'id={$auction.auction_id}'}">{xen:phrase buy_now}</a>
+				</xen:if>
+			</xen:if>
+			<xen:if is="{$auction.status}!='active' && {$auction.archived}!=1 && {$visitor.user_id}=={$auction.user_id}">
+				<a class="OverlayTrigger button primary" href="{xen:link 'auction-process/archive', '', 'id={$auction.auction_id}'}">{xen:phrase archive_auction}</a>
+			</xen:if>
+			<xen:if is="{$visitor.user_id}=={$auction.user_id} && ({$bid} || {xen:helper auction, hasPermission, 'editOwnAuctions'})">
+				<xen:if is="{$bid} && {$bid.completed} == 0">
+					<a class="OverlayTrigger button primary" href="{xen:link auction-process/complete, '', 'id={$bid.bid_id}'}">{xen:phrase complete_sale}</a>
+				</xen:if>
+				
+				<xen:if is="{$auction.status}=='active' && {xen:helper auction, hasPermission, 'editOwnAuctions'}">
+					<a class="button primary" href="{xen:link auction-process/edit, '', 'id={$auction.auction_id}'}">{xen:phrase edit_auction}</a>
+				</xen:if>
+			</xen:if>
+			<xen:if is="{$auction.status}=='active'">
+				<xen:if is="{$visitor.user_id}!={$auction.user_id} && {xen:helper auction, hasPermission, 'editOthersAuctions'}">
+					<a class="button primary" href="{xen:link auction-process/edit, '', 'id={$auction.auction_id}'}">{xen:phrase edit_auction}</a>
+				</xen:if>
+				<xen:if is="({$visitor.user_id}=={$auction.user_id} && {xen:helper auction, hasPermission, 'expireOwnAuctions'}) || {xen:helper auction, hasPermission, 'expireOthersAuctions'}">
+					<a href="{xen:link auction-process/expire, '', 'id={$auction.auction_id}'}" class="button primary">{xen:phrase expire_auction}</a>
+				</xen:if>
+			</xen:if>
+		</dd>
+	</dl>
+	
+
+	
+</form>]]></template>
+    <template title="auction_details.css" version_id="17" version_string="1.2 Beta 1"><![CDATA[.auctionDetails .message
+{
+	min-height: 170px;
+}
+
+.auctionDetails .auctionImage
+{
+	float: right;
+	margin: 10px;
+	
+	border-radius: 4px;
+	-webkit-border-radius: 4px;
+	-moz-border-radius: 4px;
+	-khtml-border-radius: 4px;
+}
+
+dl.doubleButtons dt
+{
+	width: {xen:calc '{xen:property overlayCtrlUnitLabelWidth} - {xen:property ctrlUnitLabel.padding-left} - {xen:property ctrlUnitLabel.padding-right} - 50'}px !important;
+}
+
+.xenForm.auctionForm .ctrlUnit.submitUnit dd
+{
+	width: 100%;
+	text-align: center;
+}
+
+.formOverlay.auctionForm
+{
+	border: 0 !important;
+}
+
+.formOverlay.auctionForm .ctrlUnit
+{
+	border-top: 0;
+}
+
+	.formOverlay.auctionForm .heading.h1
+	{
+		background: transparent;
+		border: 0;
+		padding: 0;
+	}
+
+	.formOverlay.auctionForm .auctionImage
+	{
+		border-radius: 4px;
+		background-color: rgba(0,0,0,0.2);
+		padding: 5px;
+	}
+
+#lbOverlay, #lbCenter, #lbBottomContainer {
+	z-index: 99999 !important;
+}
+
+.auctionDetails .auctionImage.size_m
+{
+	width: 150px;
+	height: 150px;
+}]]></template>
+    <template title="auction_details_content" version_id="14" version_string="1.0 RC1"><![CDATA[<xen:require css="auction_details.css" />
+
+<div class="auctionDetails">
+
+	<div class="message">
+		{xen:helper auction, image, $auction, 'm', 0, 0}
+		{xen:raw $auction.messageHtml}
+	</div>
+
+</div>]]></template>
+    <template title="auction_edit" version_id="13" version_string="1.0 Beta 5 (build 1)"><![CDATA[<xen:require css="auction_create.css" />
+<xen:require css="auction_tags.css" />
+<xen:require js="js/xenauction/auctions.js" />
+<xen:require js="js/xenauction/chosen/chosen.jquery.js" />
+
+<xen:title>{xen:phrase edit_auction}</xen:title>
+
+<xen:navigation>
+    <xen:breadcrumb href="{xen:link 'auction-process/edit', '', 'id={$auction.auction_id}'}">{xen:phrase edit_auction}</xen:breadcrumb>
+</xen:navigation>
+
+<form action="{xen:link 'auction-process/save'}" method="post"
+	class="xenForm auction"
+	enctype="multipart/form-data"
+>
+
+	<xen:hook name="auction_create">
+		
+	<dl class="ctrlUnit">
+		<dt><label for="ctrl_tags">{xen:phrase tags}:</label></dt>
+		<dd class="tagContainer">
+			<select name="tags[]" class="chzn-select" multiple="multiple" data-placeholder="{xen:phrase choose_tags}" style="width: {xen:calc '{xen:property formWidth} - {xen:property ctrlUnitLabelWidth} - {xen:property textCtrl.border-left-width} - {xen:property textCtrl.border-right-width} - {xen:property textCtrl.padding-left} - {xen:property textCtrl.padding-right} - {xen:property ctrlUnitEdgeSpacer}'}px">
+				<xen:foreach loop="$allTags" value="$tag">
+					<option value="{$tag.tag_id}" {xen:if {$tags.{$tag.tag_id}}, 'selected="selected"'}>{$tag.name}</option>
+				</xen:foreach>
+			</select>
+		</dd>
+	</dl>	
+
+	<div class="summary">
+		
+		<dl class="ctrlUnit fullWidth surplusLabel">
+			<dt><label for="ctrl_title_thread_create">{xen:phrase title}:</label></dt>
+			<dd><input type="text" name="title" class="textCtrl titleCtrl" id="ctrl_title_auction_create" maxlength="100" autofocus="true"
+				placeholder="{xen:phrase auction_title}..." value="{$auction.title}" /></dd>
+		</dl>
+		
+		<dl class="ctrlUnit fullWidth">
+			<dt></dt>
+			<dd>{xen:raw $editorTemplate}</dd>
+		</dl>
+	</div>
+	
+	<div class="details">
+		
+		<h3 class="textHeading">{xen:phrase details}</h3>
+		
+		<dl class="ctrlUnit">
+			<dt>Image:</dt>
+			<dd><input type="file" name="image" /></dd>
+		</dl>
+		
+		
+	</div>
+	
+	<!-- slot: after_editor -->
+
+	<dl class="ctrlUnit submitUnit">
+		<dd>
+			<input type="submit" value="{xen:phrase save_auction}" accesskey="s" class="button primary" />
+		</dd>
+	</dl>
+
+	<input type="hidden" name="id" value="{$auction.auction_id}" />
+	<input type="hidden" name="_xfToken" value="{$visitor.csrf_token_page}" />
+	
+	</xen:hook>
+	
+</form>
+
+<script type="text/javascript"><!--
+<xen:include template="auction_phrases_js"/>
+new XenAuction.Create;
+//--></script>]]></template>
+    <template title="auction_history_auctions" version_id="17" version_string="1.2 Beta 1"><![CDATA[<xen:require css="auction_history_auctions.css" />
+<xen:require js="js/xenauction/auctions.js" />
+
+<xen:if is="{$archived}">
+	<xen:title>{xen:phrase archived_auctions}</xen:title>
+<xen:else/>
+	<xen:title>{xen:phrase your_auctions}</xen:title>		
+</xen:if>
+
+<xen:navigation>
+	<xen:breadcrumb href="{xen:link 'auction-history'}">{xen:phrase history}</xen:breadcrumb>
+</xen:navigation>
+
+<div class="historyAuctions">
+<xen:if is="{$auctions}">
+	
+	<table class="auctions dataTable">
+		<thead>
+			<tr class="dataRow">
+				<th class="entryId"></th>
+				<th class="title">{xen:phrase title}</th>
+				<th class="timeLeft">{xen:phrase time_left}</th>
+				<th class="type">{xen:phrase type}</th>
+				<th class="bids">{xen:phrase bids}</th>
+				<th class="sales">{xen:phrase sales}</th>
+			</tr>
+		</thead>
+		<tbody>
+			<xen:foreach loop="$auctions" value="$auction">
+
+				<tr class="dataRow auctionItem status_{$auction.status}">
+					<td class="entryId">
+						#{$auction.auction_id}
+					</td>
+					<td class="title">
+						<a class="OverlayTrigger" href="{xen:link 'auctions/details', '', 'id={$auction.auction_id}'}">{$auction.title}</a>
+					</td>
+					<td class="timeLeft">
+						<xen:if is="{$auction.status} == 'active'">
+							<div>{$auction.expiration_date}</div>
+						<xen:elseif is="{$auction.status} == 'canceled'"/>
+							{xen:phrase canceled}
+						<xen:else/>
+							<xen:if is="{$auction.sales}">
+								{xen:phrase finished}
+							<xen:else/>
+								{xen:phrase expired}
+							</xen:if>		
+						</xen:if>
+					</td>
+					<td class="type">
+						<xen:if is="{$auction.min_bid} && {$auction.buy_now}">
+							Bid, Buyout
+						<xen:elseif is="{$auction.min_bid}"/>
+							Bid
+						<xen:elseif is="{$auction.buy_now}"/>
+							Buyout
+						</xen:if>
+					</td>
+					<td class="bids">
+						<xen:if is="{$auction.min_bid}">
+							 <strong>{$auction.bids}</strong> {xen:phrase bids}
+						<xen:else/>
+							-
+						</xen:if>
+					</td>
+					<td class="sales">
+						<strong>{$auction.sales}</strong> {xen:phrase sold}
+					</td>
+					
+				</tr>
+				
+			</xen:foreach>
+		</tbody>
+		
+	</table>
+	
+	<div class="pageNavLinkGroup">
+		<xen:pagenav link="auction-history/auctions" page="{$page}" perpage="{$perPage}" total="{$total}" />
+	</div>
+	
+	<script type="text/javascript">
+	<!--
+		<xen:include template="auction_phrases_js"/>
+		new XenAuction.List();
+	-->
+	</script>
+<xen:else/>
+	<div class="emptyResults">{xen:phrase you_have_no_auctions}</div>
+</xen:if>
+</div>
+
+<xen:sidebar>
+	
+	<div class="section">
+		<div class="tagList secondaryContent">
+			<h3>{xen:phrase search}</h3>
+			
+			<form method="POST">
+				<input type="search" name="search" placeholder="{xen:phrase keyword_or_id}" value="{$search}" class="textCtrl"/>
+				<input type="hidden" name="_xfToken" value="{$visitor.csrf_token_page}" />
+			</form>	
+			
+		</div>
+	</div>
+
+	<xen:include template="auction_history_sidebar"/>
+
+</xen:sidebar>]]></template>
+    <template title="auction_history_auctions.css" version_id="16" version_string="1.2 Beta 1"><![CDATA[/* Item widths */
+
+.historyAuctions table.auctions
+{
+	width: 100%;
+}
+
+.historyAuctions table.auctions tbody td
+{
+	padding: 10px;
+	vertical-align: middle;
+}
+
+	.historyAuctions tr:nth-child(odd) td 
+	{
+		background: {xen:property primaryLightest};
+	}
+
+	.historyAuctions .entryId,
+	.historyAuctions .timeLeft,
+	.historyAuctions .type,
+	.historyAuctions .bids,
+	.historyAuctions .sales
+	{
+		width: 90px;
+		text-align: center;
+	}
+
+	.historyAuctions .bids,
+	.historyAuctions .sales
+	{
+		width: 70px;
+	}
+
+	.historyAuctions .entryId
+	{
+		width: 40px;
+	}
+
+	.historyAuctions .auctionItem td.entryId,
+	.historyAuctions .auctionItem td.timeLeft,
+	.historyAuctions .auctionItem td.type,
+	.historyAuctions .auctionItem td.bids,
+	.historyAuctions .auctionItem td.sales
+	{
+		color: {xen:property dimmedTextColor};
+	}
+
+/* Styling */
+
+.historyAuctions .auction_list .titleBar
+{
+	display: none;
+}
+
+.historyAuctions td.timeLeft > div
+{
+	display: inline-block;
+	margin: auto;
+	
+	height: 16px;
+	background: url({xen:property imagePath}/../xenauction/clock.png) center left no-repeat;
+	padding-left: 20px;
+	padding-top: 2px;
+	margin-top: -1px;
+}
+
+.historyAuctions .auctionItem td.bids strong,
+.historyAuctions .auctionItem td.sales strong
+{
+	font-weight: bold;
+}
+
+.historyAuctions .auctionImage
+{
+	background-position: center;
+	background-repeat: no-repeat;
+}
+
+.historyAuctions .auctionImage.size_s
+{
+	width: 48px;
+	height: 48px;
+}]]></template>
+    <template title="auction_history_bids" version_id="17" version_string="1.2 Beta 1"><![CDATA[<xen:require css="auction_history_bids.css" />
+<xen:require js="js/xenauction/auctions.js" />
+
+<xen:title>{xen:phrase your_bids}</xen:title>
+
+<xen:navigation>
+	<xen:breadcrumb href="{xen:link 'auction-history'}">{xen:phrase history}</xen:breadcrumb>
+</xen:navigation>
+
+<div class="bidHistory">
+<xen:if is="{$auctions}">
+	
+	<table class="auctions dataTable">
+		<thead>
+			<tr class="dataRow">
+				<th class="entryId"></th>
+				<th class="title">{xen:phrase title}</th>
+				<th class="timeLeft">{xen:phrase time_left}</th>
+				<th class="status">{xen:phrase status}</th>
+				<th class="cost">{xen:phrase cost}</th>
+			</tr>
+		</thead>
+		<tbody>
+			<xen:foreach loop="$auctions" value="$auction">
+
+				<tr class="dataRow auctionItem status_{$auction.status}">
+					<td class="entryId">
+						#{$auction.bid_id}
+					</td>
+					<td class="title">
+						<a class="OverlayTrigger" href="{xen:link 'auctions/details', '', 'id={$auction.auction_id}'}">{$auction.title}</a>
+					</td>
+					<td class="timeLeft">
+						<xen:if is="{$auction.status} == 'active'">
+							<div>{$auction.expiration_date}</div>
+						<xen:elseif is="{$auction.status} == 'canceled'"/>
+							{xen:phrase canceled}
+						<xen:else/>
+							<xen:if is="{$auction.sales}">
+								{xen:phrase finished}
+							<xen:else/>
+								{xen:phrase expired}
+							</xen:if>		
+						</xen:if>
+					</td>
+					<td class="status">
+						<xen:if is="{$auction.status}=='expired' && {$auction.bid_status}=='winning'">
+							<xen:if is="{$auction.completed}">
+								{xen:phrase won}
+							<xen:else/>
+								{xen:phrase won_pending}
+							</xen:if>
+						<xen:else/>						
+							{$auction.bid_status}
+						</xen:if>
+					</td>
+					<td class="cost">
+						${xen:number $auction.amount}
+					</td>
+					
+				</tr>
+				
+			</xen:foreach>
+		</tbody>
+		
+	</table>
+	
+	<div class="pageNavLinkGroup">
+		<xen:pagenav link="auction-history/bids" page="{$page}" perpage="{$perPage}" total="{$total}" />
+	</div>
+	
+	<script type="text/javascript">
+	<!--
+		<xen:include template="auction_phrases_js"/>
+		new XenAuction.List();
+	-->
+	</script>
+<xen:else/>
+	<div class="emptyResults">{xen:phrase you_have_no_bids}</div>
+</xen:if>
+</div>
+
+<xen:sidebar>
+	
+	<div class="section">
+		<div class="tagList secondaryContent">
+			<h3>{xen:phrase search}</h3>
+			
+			<form method="POST">
+				<input type="search" name="search" placeholder="{xen:phrase keyword_or_id}" value="{$search}" class="textCtrl"/>
+				<input type="hidden" name="_xfToken" value="{$visitor.csrf_token_page}" />
+			</form>	
+			
+		</div>
+	</div>
+
+	<xen:include template="auction_history_sidebar"/>
+
+</xen:sidebar>]]></template>
+    <template title="auction_history_bids.css" version_id="16" version_string="1.2 Beta 1"><![CDATA[.bidHistory
+{
+	width: 100%;
+}
+
+/* Item widths */
+.bidHistory table.auctions tbody td
+{
+	padding: 10px;
+	vertical-align: middle;
+}
+
+	.bidHistory tr:nth-child(odd) td 
+	{
+		background: {xen:property primaryLightest};
+	}
+
+	.bidHistory .entryId,
+	.bidHistory .timeLeft,
+	.bidHistory .status,
+	.bidHistory .cost
+	{
+		width: 120px;
+		text-align: center;
+	}
+
+	.bidHistory .entryId
+	{
+		width: 40px;
+	}
+
+	.bidHistory td.entryId,
+	.bidHistory td.timeLeft,
+	.bidHistory td.status,
+	.bidHistory td.cost
+	{
+		color: {xen:property dimmedTextColor};
+	}
+
+
+/* Styling */
+
+.bidHistory .auction_list .titleBar
+{
+	display: none;
+}
+
+.bidHistory td.timeLeft > div
+{
+	display: inline-block;
+	margin: auto;
+	
+	height: 16px;
+	background: url({xen:property imagePath}/../xenauction/clock.png) center left no-repeat;
+	padding-left: 20px;
+	padding-top: 2px;
+	margin-top: -1px;
+}]]></template>
+    <template title="auction_history_purchases" version_id="17" version_string="1.2 Beta 1"><![CDATA[<xen:require css="auction_history_purchases.css" />
+<xen:require js="js/xenauction/auctions.js" />
+
+<xen:title>{xen:phrase your_purchases}</xen:title>
+
+<xen:navigation>
+	<xen:breadcrumb href="{xen:link 'auction-history'}">{xen:phrase history}</xen:breadcrumb>
+</xen:navigation>
+
+<div class="purchaseHistory">
+<xen:if is="{$auctions}">
+	
+	<form action="{xen:link auctions/invoice}" class="purchaseSelect" method="post">
+		
+		<input type="hidden" name="search" value="{$search}"/>
+		<input type="hidden" name="selectedOnly" value="0"/>
+		<input type="hidden" name="_xfToken" value="{$visitor.csrf_token_page}" />
+	
+		<table class="auctions dataTable">
+			<thead>
+				<tr class="dataRow">
+					<th class="entryId"></th>
+					<th class="title">{xen:phrase title}</th>
+					<th class="seller">{xen:phrase seller}</th>
+					<th class="date">{xen:phrase date}</th>
+					<th class="cost">{xen:phrase cost}</th>
+				</tr>
+			</thead>
+			<tbody>
+				<xen:foreach loop="$auctions" value="$auction">
+	
+					<tr class="dataRow auctionItem status_{$auction.status}">
+						<td class="entryId">
+							#{$auction.bid_id}
+						</td>
+						<td class="title">
+							<xen:if is="! {$auction.completed}">
+								<input type="checkbox" name="ids[]" value="{$auction.bid_id}"/>&nbsp;
+							</xen:if>
+							<a class="OverlayTrigger" href="{xen:link 'auctions/details', '', 'id={$auction.auction_id}'}">{$auction.title}</a>
+							<xen:if is="{xen:number $auction.quantity} > 1">
+								x {xen:number $auction.quantity}
+							</xen:if>
+						</td>
+						<td class="seller">
+							{xen:helper username, {$users.{$auction.user_id}}}
+						</td>
+						<td class="date">
+							{xen:date {$auction.sale_date}}
+						</td>
+						<td class="cost">
+							${xen:number $auction.amount}
+						</td>
+						
+					</tr>
+					
+				</xen:foreach>
+			</tbody>
+			
+		</table>
+		
+		<div class="pageNavLinkGroup">
+			<xen:pagenav link="auction-history/purchases" page="{$page}" perpage="{$perPage}" total="{$total}" />
+		</div>
+		
+		<xen:if is="! {$auction.completed}">
+				<div class="pageNavLinkGroup">
+					<div class="linkGroup">
+						<input type="button" class="button printSelected" value="{xen:phrase print_selected_invoices}"/>
+						&nbsp;
+						<input type="button" class="button" value="{xen:phrase print_invoices}"/>
+					</div>
+				</div>
+		</xen:if>
+	</form>
+	
+	<script type="text/javascript">
+	<!--
+	<xen:include template="auction_phrases_js"/>
+	
+	new XenAuction.Purchases;
+	-->
+	</script>
+	
+<xen:else/>
+	<div class="emptyResults">{xen:phrase you_have_no_purchases}</div>
+</xen:if>
+</div>
+
+<xen:sidebar>
+	
+	<div class="section">
+		<div class="tagList secondaryContent">
+			<h3>{xen:phrase search}</h3>
+			
+			<form method="POST">
+				<input type="search" name="search" placeholder="{xen:phrase keyword_or_id}" value="{$search}" class="textCtrl"/>
+				<input type="hidden" name="_xfToken" value="{$visitor.csrf_token_page}" />
+			</form>	
+			
+		</div>
+	</div>
+
+	<xen:include template="auction_history_sidebar"/>
+
+</xen:sidebar>]]></template>
+    <template title="auction_history_purchases.css" version_id="17" version_string="1.2 Beta 1"><![CDATA[.auctionHistory
+{
+	width: 100%;
+}
+
+/* Item widths */
+.purchaseHistory table.auctions tbody td
+{
+	padding: 10px;
+	vertical-align: middle;
+}
+
+	.purchaseHistory tr:nth-child(odd) td 
+	{
+		background: {xen:property primaryLightest};
+	}
+
+	.purchaseHistory .entryId,
+	.purchaseHistory .date,
+	.purchaseHistory .status,
+	.purchaseHistory .quantity,
+	.purchaseHistory .cost
+	{
+		width: 100px;
+		text-align: center;
+	}
+
+	.purchaseHistory .entryId
+	{
+		width: 40px;
+	}
+
+	.purchaseHistory td.entryId,
+	.purchaseHistory td.date,
+	.purchaseHistory td.status,
+	.purchaseHistory td.quantity,
+	.purchaseHistory td.cost
+	{
+		color: {xen:property dimmedTextColor};
+	}
+
+/* Styling */
+
+.purchaseHistory .auction_list .titleBar
+{
+	display: none;
+}]]></template>
+    <template title="auction_history_sales" version_id="17" version_string="1.2 Beta 1"><![CDATA[<xen:require css="auction_history_sales.css" />
+<xen:require js="js/xenauction/auctions.js" />
+
+<xen:if is="{$completed}">
+	<xen:title>{xen:phrase completed_sales}</xen:title>		
+<xen:else/>
+	<xen:title>{xen:phrase pending_sales}</xen:title>		
+</xen:if>
+
+<xen:navigation>
+	<xen:breadcrumb href="{xen:link 'auction-history'}">{xen:phrase history}</xen:breadcrumb>
+</xen:navigation>
+
+<div class="saleHistory">
+<xen:if is="{$auctions}">
+	
+	<table class="auctions dataTable">
+		<thead>
+			<tr class="dataRow">
+				<th class="entryId"></th>
+				<th class="title">{xen:phrase title}</th>
+				<th class="buyer">{xen:phrase buyer}</th>
+				<th class="date">{xen:phrase date}</th>
+				<th class="type">{xen:phrase type}</th>
+				<th class="cost">{xen:phrase cost}</th>
+			</tr>
+		</thead>
+		<tbody>
+			<xen:foreach loop="$auctions" value="$auction">
+
+				<tr class="dataRow auctionItem status_{$auction.status}">
+					<td class="entryId">
+						#{$auction.bid_id}
+					</td>
+					<td class="title">
+						<a class="OverlayTrigger" href="{xen:link 'auctions/details', '', 'id={$auction.auction_id}'}&bid_id={$auction.bid_id}">{$auction.title}</a>
+						<xen:if is="{$auction.quantity} > 1">
+							x {$auction.quantity}
+						</xen:if>
+					</td>
+					<td class="buyer">
+						{xen:helper username, {$users.{$auction.bid_user_id}}}
+					</td>
+					<td class="date">
+						{xen:date {$auction.sale_date}}
+					</td>
+					<td class="type">
+						<xen:if is="{$auction.is_buyout}">
+							{xen:phrase buyout}
+						<xen:else/>
+							{xen:phrase bid}
+						</xen:if>
+					</td>
+					<td class="cost">
+						${xen:number $auction.amount}
+					</td>
+					
+				</tr>
+				
+			</xen:foreach>
+		</tbody>
+		
+	</table>
+	
+	<div class="pageNavLinkGroup">
+		<xen:pagenav link="auction-history/sales" page="{$page}" perpage="{$perPage}" total="{$total}" />
+	</div>
+	
+	<script type="text/javascript">
+	<!--
+		<xen:include template="auction_phrases_js"/>
+		new XenAuction.List();
+	-->
+	</script>
+<xen:else/>
+	<div class="emptyResults">{xen:phrase you_have_no_sales}</div>
+</xen:if>
+</div>
+
+<xen:sidebar>
+	
+	<div class="section">
+		<div class="tagList secondaryContent">
+			<h3>{xen:phrase search}</h3>
+			
+			<form method="POST">
+				<input type="search" name="search" placeholder="{xen:phrase keyword_or_id}" value="{$search}" class="textCtrl"/>
+				<input type="hidden" name="_xfToken" value="{$visitor.csrf_token_page}" />
+			</form>	
+			
+		</div>
+	</div>
+
+	<xen:include template="auction_history_sidebar"/>
+
+</xen:sidebar>]]></template>
+    <template title="auction_history_sales.css" version_id="16" version_string="1.2 Beta 1"><![CDATA[.auctionHistory
+{
+	width: 100%;
+}
+
+/* Item widths */
+.saleHistory table.auctions tbody td
+{
+	padding: 10px;
+}
+
+	.saleHistory tr:nth-child(odd) td 
+	{
+		background: {xen:property primaryLightest};
+	}
+
+	.saleHistory .entryId,
+	.saleHistory .date,
+	.saleHistory .status,
+	.saleHistory .type,
+	.saleHistory .quantity,
+	.saleHistory .cost
+	{
+		width: 100px;
+		text-align: center;
+	}
+
+	.saleHistory .date
+	{
+		width: 120px;
+	}
+
+	.saleHistory .quantity
+	{
+		width: 50px;
+	}
+
+	.saleHistory .cost
+	{
+		width: 80px;
+	}
+
+	.saleHistory .entryId
+	{
+		width: 40px;
+	}
+
+	.saleHistory td.entryId,
+	.saleHistory td.date,
+	.saleHistory td.status,
+	.saleHistory td.type,
+	.saleHistory td.quantity,
+	.saleHistory td.cost
+	{
+		color: {xen:property dimmedTextColor};
+	}
+
+/* Styling */
+
+.saleHistory > li > div
+{
+	margin: 5px;
+}
+
+.saleHistory .auction_list .titleBar
+{
+	display: none;
+}
+
+.saleHistory .auctionItem td.title h3 
+{
+	font-weight: bold;
+	font-size: 120%;
+}
+
+	.saleHistory .auctionItem td.title h3  a
+	{
+		display: block;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		-o-text-overflow: ellipsis;
+		max-height: 22px;
+	}
+
+]]></template>
+    <template title="auction_history_sidebar" version_id="17" version_string="1.2 Beta 1"><![CDATA[<xen:require css="auction_history_sidebar.css" />
+
+<div class="historySidebar">
+
+	<div class="section">	
+		<div class="tagList secondaryContent">
+			<h3>{xen:phrase your_purchases}</h3>
+			
+			<ul>
+				<li><a href="{xen:helper auction, link, 'auction-history/bids'}">{xen:phrase bid_history}</a></li>
+				<li><a href="{xen:helper auction, link, 'auction-history/purchases'}">{xen:phrase pending_purchases}</a></li>
+				<li><a href="{xen:helper auction, link, 'auction-history/purchases', 'completed=1'}">{xen:phrase completed_purchases}</a></li>
+			</ul>
+	
+			<xen:if is="{xen:helper auction, hasPermission, 'createAuctions'}">
+				<h3>{xen:phrase your_auctions}</h3>
+				
+				<ul>
+					<li><a href="{xen:helper auction, link, 'auction-history/auctions'}">{xen:phrase auctions}</a></li>
+					<li><a href="{xen:helper auction, link, 'auction-history/auctions', 'archived=1'}">{xen:phrase archived}</a></li>
+				</ul>
+				
+				<h3>{xen:phrase your_sales}</h3>
+				
+				<ul>
+					<li><a href="{xen:helper auction, link, 'auction-history/sales'}">{xen:phrase pending_sales}</a></li>
+					<li><a href="{xen:helper auction, link, 'auction-history/sales', 'completed=1'}">{xen:phrase completed_sales}</a></li>
+				</ul>
+			</xen:if>
+			
+		</div>
+	</div>
+	
+</div>]]></template>
+    <template title="auction_history_sidebar.css" version_id="17" version_string="1.2 Beta 1"><![CDATA[.historySidebar ul 
+{
+	text-align: left;
+	margin: 0 0 10px 20px;
+}
+
+.historySidebar li 
+{
+	font-size: 110%;
+	list-style: square;
+	margin-bottom: 5px;
+}
+
+.historySidebar h3
+{
+	margin-top: 10px;
+	margin-bottom: 5px;
+}]]></template>
+    <template title="auction_invoice" version_id="18" version_string="1.2.1"><![CDATA[<xen:require css="auction_invoice.css"/>
+
+<xen:title>Invoice for Auction Purchases</xen:title>
+
+<h1>
+	{$xenOptions.boardTitle}
+</h1>
+<h2>
+	Invoice for Auction Purchases
+</h2>
+
+<xen:include template="auction_invoice_extra_above"/>
+
+<h2>
+	Purchase Details
+</h2>
+
+<table class="auctions dataTable">
+	<thead>
+		<tr class="dataRow">
+			<th class="entryId"></th>
+			<th class="title">{xen:phrase title}</th>
+			<th class="quantity">{xen:phrase quantity}</th>
+			<th class="cost">{xen:phrase cost}</th>
+		</tr>
+	</thead>
+	<tbody>
+		<xen:foreach loop="$auctions" value="$auction">
+			<tr class="dataRow">
+				<td class="entryId">#{$auction.bid_id}</td>
+				<td class="title">{$auction.title} <span class="tags">{xen:helper auction, tags, {$tags.{$auction.auction_id}}, '(', ')'}</span></td>
+				<td class="quantity">{xen:number $auction.quantity}</td>
+				<td class="cost">${xen:number $auction.amount}</td>
+			</tr>
+		</xen:foreach>
+	</tbody>
+	<tfoot>
+		<tr class="dataRow">
+			<td colspan="3" align="right">
+				<strong>Sub-Total:</strong>
+			</td>
+			<td>${xen:number $subtotal}</td>
+		</tr>
+		<tr class="dataRow">
+			<td colspan="3" align="right">
+				<strong>Shipping:</strong>
+			</td>
+			<td>${xen:number $shipping}</td>
+		</tr>
+		<tr class="dataRow">
+			<td colspan="3" align="right">
+				<strong>Total:</strong>
+			</td>
+			<td>${xen:number $total}</td>
+		</tr>
+	</tfoot>
+</table>
+
+<xen:include template="auction_invoice_extra_below"/>
+
+<div class="pageNavLinkGroup">
+	<div class="linkGroup">
+		
+		<a class="callToAction" href="#print" onClick="window.print(); return false;"><span>Print This Page</span></a>
+		
+	</div>
+</div>]]></template>
+    <template title="auction_invoice.css" version_id="18" version_string="1.2.1"><![CDATA[h1
+{
+	font-size: 18pt;
+}
+
+h2
+{
+	font-size: 14pt;
+}
+
+strong
+{
+	font-weight: bold;
+}
+
+p
+{
+	margin: 10px 0;
+}
+
+blockquote
+{
+	margin: 1em;
+}
+
+span.tags
+{
+	color: {xen:property dimmedTextColor};
+	font-style: italic;
+}]]></template>
+    <template title="auction_invoice_extra_above" version_id="17" version_string="1.2 Beta 1"><![CDATA[]]></template>
+    <template title="auction_invoice_extra_below" version_id="0" version_string=""><![CDATA[]]></template>
+    <template title="auction_list" version_id="17" version_string="1.2 Beta 1"><![CDATA[<xen:title>{xen:phrase auctions}</xen:title>
+
+<xen:require css="auction_list.css" />
+<xen:require js="js/xenauction/auctions.js" />
+<xen:require js="js/xenauction/slimbox/js/slimbox2.js" />
+
+<link rel="stylesheet" href="js/xenauction/slimbox/css/slimbox2.css" />
+
+<xen:if is="{xen:helper auction, hasPermission, 'createAuctions'}">
+	<xen:set var="$newAuctionButton"><a href="{xen:link 'auction-process/create'}" class="callToAction"><span>{xen:phrase create_auction}</span></a></xen:set>
+	<xen:topctrl>{xen:raw $newAuctionButton}</xen:topctrl>
+</xen:if>
+
+<xen:if is="{$auctions}">
+	<table class="section auctions auctionList dataTable">
+		<thead>
+			<tr class="dataRow">
+				<th></th>
+				<th class="title">{xen:phrase title}</th>
+				<th class="timeLeft">{xen:phrase time_left}</th>
+				<th class="bids">{xen:phrase bids_availability}</th>
+				<th class="price">{xen:phrase price}</th>
+				<th class="bid">{xen:phrase buy}</th>
+			</tr>
+		</thead>
+		<tbody>
+	
+		<xen:foreach loop="$auctions" value="$auction">
+				<xen:include template="auction_list_item"/>
+			</xen:foreach>
+		
+		</tbody>
+			
+	</table>
+<xen:else/>
+	<div class="emptyResults">
+		{xen:phrase no_auctions_found}
+	</div>
+</xen:if>
+
+<div class="pageNavLinkGroup">
+	<xen:pagenav link="auctions" page="{$page}" perpage="{$perPage}" total="{$total}" linkparams="{$pageNavParams}" />
+</div>
+
+<xen:sidebar>
+
+	<xen:if is="{xen:helper auction, hasPermission, 'searchAuctions'}">
+		<div class="section">
+			<form action="{xen:link auctions}" method="post" class="secondaryContent findAuction">
+				<h3>{xen:phrase find_auction}</h3>
+					
+				<input type="search" name="search" placeholder="{xen:phrase keywords}..." value="{$search}" results="0" class="textCtrl" />
+				<input type="hidden" name="_xfToken" value="{$visitor.csrf_token_page}" />
+			</form>
+		</div>
+	</xen:if>
+	
+	<xen:if is="{$allTags}">
+		<div class="section filterTags">
+			<xen:if is="{$tagMode}=='list'">
+				<div class="tagList secondaryContent">
+					<h3>{xen:phrase filter_by_tag}</h3>
+					
+					<ul>
+						<xen:foreach loop="$allTags" value="$tag">
+							<li><a href="{xen:link auctions, '', 'tag={$tag.tag_id}'}">{$tag.name}</a></li>
+						</xen:foreach>
+					</ul>
+				</div>
+			<xen:else/>
+				<xen:require css="auction_tags.css" />
+				<xen:require js="js/xenauction/chosen/chosen.jquery.js" />
+				<form action="{xen:link auctions}" method="post" class="secondaryContent filterTag">
+					<h3>{xen:phrase filter_by_tag}</h3>
+	
+					<select name="tags[]" class="chzn-select" multiple="multiple" style="width: 100%;" data-placeholder="{xen:phrase choose_tags}">
+						<xen:foreach loop="$allTags" value="$tag">
+							<option value="{$tag.tag_id}" {xen:if {$selTags.{$tag.tag_id}}, "selected='selected'"}>{$tag.name}</option>
+						</xen:foreach>
+					</select>
+					
+					<input type="submit" value="{xen:phrase filter}" class="button"/>
+	
+					<input type="hidden" name="_xfToken" value="{$visitor.csrf_token_page}" />
+				</form>
+			</xen:if>
+		</div>
+	</xen:if>
+
+</xen:sidebar>
+
+<script type="text/javascript">
+<!--
+<xen:include template="auction_phrases_js"/>
+
+new XenAuction.List;
+-->
+</script>]]></template>
+    <template title="auction_list.css" version_id="18" version_string="1.2.1"><![CDATA[table.auctionList
+{
+	width: 100%;
+}
+
+/* Item widths */
+
+.auctionList thead th
+{
+	padding-left: 0px !important;
+	padding-right: 0px !important;
+	vertical-align: middle;
+	/*
+	background: url({xen:property imagePath}/../xenauction/gradient.png);	
+	border-bottom: 1px solid rgba(150,150,150,0.7);
+	*/
+}
+
+.auctionList .auctionItem td
+{
+	height: 58px;
+	padding: 0px !important;
+	vertical-align: middle;
+}
+
+	.auctionList td.icon
+	{
+		width: 55px;
+	}
+
+	.auctionList .timeLeft, .auctionList .bids, .auctionList .price, .auctionList .bid
+	{
+		text-align: center;
+		width: 110px;
+	}
+ 
+ 	.auctionList td.timeLeft, .auctionList td.bids, .auctionList td.price, .auctionList td.bid
+	{
+		color: {xen:property dimmedTextColor};
+		text-transform: uppercase;
+	}
+
+ 	.auctionList td.timeLeft > div
+	{
+		display: inline-block;
+		margin: auto;
+	
+		height: 16px;
+		background: url({xen:property imagePath}/../xenauction/clock.png) center left no-repeat;
+		padding-left: 20px;
+		padding-top: 2px;
+		margin-top: -1px;
+	}
+
+	.auctionList td
+	{
+		/*border-bottom: 1px solid rgba(190,190,190,0.4);*/
+		/*box-shadow:inset 0px 2px 0px rgba(255, 255, 255, 0.8);*/
+		/*border-right: 1px solid rgba(190,190,190,0.3);*/
+	}
+
+	.auctionList tr:nth-child(odd) td 
+	{
+		background: {xen:property primaryLightest};
+	}
+
+	.auctionList tr:first-child td
+	{
+		box-shadow: none;
+	}
+
+	.auctionList td.icon, .auctionList td.bid
+	{
+		border-right: 0;
+	}
+
+	.auctionList td.icon
+	{
+		padding-right: 5px !important;
+	}
+
+	.auctionList td.title
+	{
+		font-size: 110%;
+	}
+
+	.auctionList td.timeLeft, .auctionList td.price
+	{
+		/*background-color: rgba(180,180,180,0.20);*/
+	}
+
+	.auctionList td.price span:nth-child(2)
+	{
+		border-left: 1px solid {xen:property mutedTextColor};
+		padding-left: 3px;
+	}
+
+	.auctionList td.price div
+	{
+		line-height: 20px;
+		height: 20px;
+	}
+
+	.auctionList td.price div:nth-child(2)
+	,.auctionList td.bid div:nth-child(2)
+	{
+		margin: 3px 10px 0;
+		padding-top: 3px;	
+	}
+
+	.auctionList td.bid .button
+	{
+		font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+		font-weight: normal;
+		font-size: 10px;
+		line-height: 20px;
+		height: 20px;
+		box-shadow: none;
+		background-color: {xen:property primaryLight};
+		color: {xen:property primaryDarker};
+		text-shadow: rgba(255, 255, 255, 0.4) 0px 1px 0;
+		box-shadow: 0px 1px 4px 0px rgba(200, 200, 200, 0.3);
+	}
+
+		.auctionList td.bid .button:hover
+		{
+			background-color: {xen:property primaryLighter};
+		}
+
+		.auctionList td.bid .button:active
+		{
+			background-color: {xen:property primaryMedium};
+		}
+
+		.auctionList td.bid .button.buyout
+		{
+	/*
+			color: {xen:property secondaryDarker};
+			background-color: {xen:property secondaryLight};
+			text-shadow: {xen:property secondaryLightest} 0px 1px 0;
+	*/
+		}
+
+			.auctionList td.bid .button.buyout:hover
+			{
+				background-color: {xen:property secondaryLighter};
+			}
+
+			.auctionList td.bid .button.buyout:active
+			{
+				background-color: {xen:property secondaryMedium};
+			}
+
+	.auctionList td.bid .btn
+	{
+		font-size: 90%;
+		display: inline-block;
+		padding: 0 5px;
+		color: #2b2b2b;
+		background: {xen:property primaryLighterStill};
+		border: 1px solid {xen:property primaryLighter};
+		border-radius: 4px;
+		text-transform: none;
+	}
+
+		.auctionList td.bid .btn.buyout
+		{
+			background: {xen:property secondaryLighter};
+			border: 1px solid {xen:property primaryLight};
+		}
+
+.auctionList .auctionImage
+{
+	border: 1px solid #A5CAE4;
+	border-radius: 4px;
+	padding: 1px;
+}
+
+
+.auctionImage
+{
+	background-position: center;
+	background-repeat: no-repeat;
+}
+
+.auctionImage.size_s
+{
+	width: 48px;
+	height: 48px;
+}
+
+.auctionImage.size_m
+{
+	width: 150px;
+	height: 150px;
+}
+
+.auctionCreate
+{
+	text-align: center;
+}
+
+	.auctionCreate a.callToAction
+	{
+		margin: 15px auto;
+		height: 25px;
+		line-height: 25px;
+	}
+
+	.auctionCreate a.callToAction span
+	{
+		font-size: 14px;
+	}
+
+.sidebar input[name="search"]
+{
+	height: 27px;
+	width: 100%;
+}
+
+.sidebar .filterTags
+{
+	text-align: center;
+}
+
+.sidebar .tagList 
+{
+	text-align: left;
+	font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+	line-height: 24px;
+}
+
+.sidebar .filterTags ul
+{
+	text-align: left;
+	margin: 20px 0 10px;
+}
+
+.sidebar .filterTags li
+{
+	font-size: 110%;
+	margin-left: 10px;
+}
+
+.sidebar .filterTags li:before
+{
+	font-weight: bold;
+    content: "• ";
+    color: {xen:property primaryLightish}; 
+	margin-right: 10px;
+}
+
+.sidebar .chzn-container
+{
+	text-align: left;
+}]]></template>
+    <template title="auction_list_item" version_id="18" version_string="1.2.1"><![CDATA[<xen:require css="auction_list.css" />
+<xen:require js="js/xenauction/auctions.js" />
+
+<tr class="primaryContent auctionItem status_{$auction.status} dataRow">
+	
+	<td class="icon">{xen:helper auction, image, $auction, 's', 1}</td>
+	<td class="title">
+		<a class="OverlayTrigger" href="{xen:link 'auctions/details', '', 'id={$auction.auction_id}'}">{$auction.title}</a>
+	</td>
+	<td class="timeLeft">
+		<div>{$auction.expiration_date}</div>
+	</td>
+	<td class="bids">
+		<xen:if is="{$auction.min_bid}">
+			{$auction.bids} {xen:phrase bids}
+		<xen:else/>
+			{$auction.availability} {xen:phrase left}
+		</xen:if>
+	</td>
+	<td class="price">
+		<xen:if is="{$auction.top_bid}">
+			<div>${xen:number $auction.top_bid}</div>
+		<xen:elseif is="{$auction.min_bid}"/>
+			<div>${xen:number $auction.min_bid}</div>
+		</xen:if>
+		<xen:if is="{$auction.buy_now}">
+			<div>${xen:number $auction.buy_now}</div>
+		</xen:if>
+
+	</td>
+	<td class="bid">
+		<xen:if is="{$auction.min_bid}">
+			<div><a class="OverlayTrigger button" href="{xen:link 'auction-bid/bid', '', 'id={$auction.auction_id}'}">{xen:phrase place_bid}</a></div>
+		</xen:if>
+		<xen:if is="{$auction.buy_now}">
+			<div><a class="OverlayTrigger button buyout primary" href="{xen:link 'auction-bid/buyout', '', 'id={$auction.auction_id}'}">{xen:phrase buy_now}</a></div>
+		</xen:if>
+	</td>
+	
+</tr>]]></template>
+    <template title="auction_navigation_tab" version_id="14" version_string="1.0 RC1"><![CDATA[<ul class="secondaryContent blockLinksList">
+	<xen:if is="{xen:helper auction, hasPermission, 'viewAuctions'}">
+		<li><a href="{xen:link auctions}">{xen:phrase auction_list}</a></li>
+		<li><a href="{xen:link auction-history}">{xen:phrase history}</a></li>
+	</xen:if>
+	<xen:if is="{xen:helper auction, hasPermission, 'createAuctions'}">
+		<li><a href="{xen:link auction-process/create}">{xen:phrase create_auction}</a></li>
+	</xen:if>
+	<xen:include template="auction_navigation_tab_extra" />
+</ul>]]></template>
+    <template title="auction_navigation_tab_extra" version_id="0" version_string=""><![CDATA[]]></template>
+    <template title="auction_phrases_js" version_id="0" version_string=""><![CDATA[XenAuction.Config.currentTime 			= '{xen:helper auction, time}';
+XenAuction.Config.phrases.secondsLeft 	= '{xen:phrase seconds_left}';
+XenAuction.Config.phrases.minutesLeft 	= '{xen:phrase minutes_left}';
+XenAuction.Config.phrases.hoursLeft 	= '{xen:phrase hours_left}';
+XenAuction.Config.phrases.daysLeft 		= '{xen:phrase days_left}';
+
+XenAuction.Config.phrases.errorInvalidQuantity 	= '{xen:phrase quantity_not_available}';
+XenAuction.Config.phrases.errorBidTooLow 		= '{xen:phrase bid_must_be_higher}';]]></template>
+    <template title="auction_print_container" version_id="17" version_string="1.2 Beta 1"><![CDATA[<!DOCTYPE html>
+<html id="XenForo" lang="{$visitorLanguage.language_code}" dir="{$visitorLanguage.text_direction}" class="Public {xen:if {$visitor.user_id}, 'LoggedIn', 'LoggedOut'} {xen:if {$sidebar}, 'Sidebar', 'NoSidebar'}" xmlns:fb="http://www.facebook.com/2008/fbml">
+<head>
+<xen:hook name="page_container_head">
+	<meta charset="utf-8" />
+	<xen:if is="{$requestPaths.fullBasePath}">
+		<base href="{$requestPaths.fullBasePath}" />
+		<script><xen:comment>/* Chrome bug and for Google cache */</xen:comment>
+			var _b = document.getElementsByTagName('base')[0], _bH = "{xen:jsescape $requestPaths.fullBasePath}";
+			if (_b && _b.href != _bH) _b.href = _bH;
+		</script>
+	</xen:if>
+
+	<title><xen:if is="{$title}">{xen:raw $title} | {$xenOptions.boardTitle}<xen:else />{$xenOptions.boardTitle}</xen:if></title>
+	
+	<noscript><style>.JsOnly { display: none !important; }</style></noscript>
+	<link rel="stylesheet" href="css.php?css=xenforo,form,public&amp;style={xen:urlencode $_styleId}&amp;dir={$visitorLanguage.text_direction}&amp;d={$visitorStyle.last_modified_date}" />
+	<!--XenForo_Require:CSS-->	
+	{xen:helper ignoredCss, {$visitor.ignoredUsers}}
+
+	<xen:include template="google_analytics" />
+	<xen:include template="page_container_js_head" />
+	
+	<link rel="alternate" type="application/rss+xml" title="{xen:phrase rss_feed_for_x, 'title={$xenOptions.boardTitle}'}" href="{xen:link forums/-/index.rss}" />
+	<xen:if is="{$pageDescription.content} AND !{$pageDescription.skipmeta} AND !{$head.description}"><meta name="description" content="{xen:string wordTrim, {xen:helper stripHtml, {xen:raw $pageDescription.content}}, 200}" /></xen:if>
+	<xen:if is="{$head}"><xen:foreach loop="$head" value="$headElement">{xen:raw $headElement}</xen:foreach></xen:if>
+</xen:hook>
+</head>
+
+<body {xen:if {$bodyClasses}, 'class="{$bodyClasses} printInvoice"', 'class="printInvoice"'}>
+<xen:hook name="body">
+
+<header>
+	<div id="header">
+		<xen:include template="logo_block" />	
+	</div>
+</header>
+	
+<div id="content" class="{$contentTemplate}">
+	<div class="pageWidth">
+		<div class="pageContent">
+					
+			<!-- main template -->
+			{xen:raw $contents}
+						
+		</div>
+	</div>
+</div>
+
+<footer>
+	<xen:include template="footer" />
+</footer>
+	
+<xen:if is="{$cronLink}"><img src="{$cronLink}" width="1" height="1" alt="" style="display: none" /></xen:if>
+
+</xen:hook>
+</body>
+</html>]]></template>
+    <template title="auction_tags.css" version_id="11" version_string="1.0 Beta 3 (build 1)"><![CDATA[/* @group Base */
+.chzn-container {
+  font-size: 13px;
+  position: relative;
+  display: inline-block;
+  zoom: 1;
+  *display: inline;
+}
+.chzn-container .chzn-drop {
+  background: #fff;
+  border: 1px solid #aaa;
+  border-top: 0;
+  position: absolute;
+  top: 38px;
+  left: 0;
+  -webkit-box-shadow: 0 4px 5px rgba(0,0,0,.15);
+  -moz-box-shadow   : 0 4px 5px rgba(0,0,0,.15);
+  -o-box-shadow     : 0 4px 5px rgba(0,0,0,.15);
+  box-shadow        : 0 4px 5px rgba(0,0,0,.15);
+  z-index: 999;
+}
+/* @end */
+
+/* @group Single Chosen */
+.chzn-container-single .chzn-single {
+  background-color: #fff;
+  background-image: -webkit-gradient(linear, left bottom, left top, color-stop(0, #eeeeee), color-stop(0.5, white));
+  background-image: -webkit-linear-gradient(center bottom, #eeeeee 0%, white 50%);
+  background-image: -moz-linear-gradient(center bottom, #eeeeee 0%, white 50%);
+  background-image: -o-linear-gradient(top, #eeeeee 0%,#ffffff 50%);
+  background-image: -ms-linear-gradient(top, #eeeeee 0%,#ffffff 50%);
+  filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#eeeeee', endColorstr='#ffffff',GradientType=0 );
+  background-image: linear-gradient(top, #eeeeee 0%,#ffffff 50%);
+  -webkit-border-radius: 4px;
+  -moz-border-radius   : 4px;
+  border-radius        : 4px;
+  -moz-background-clip   : padding;
+  -webkit-background-clip: padding-box;
+  background-clip        : padding-box;
+  border: 1px solid #aaa;
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  position: relative;
+  height: 26px;
+  line-height: 26px;
+  padding: 0 0 0 8px;
+  color: #444;
+  text-decoration: none;
+}
+.chzn-container-single .chzn-single span {
+  margin-right: 26px;
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  -o-text-overflow: ellipsis;
+  -ms-text-overflow: ellipsis;
+  text-overflow: ellipsis;
+}
+.chzn-container-single .chzn-single abbr {
+  display: block;
+  position: absolute;
+  right: 26px;
+  top: 8px;
+  width: 12px;
+  height: 13px;
+  font-size: 1px;
+background: url({xen:property imagePath}/../../js/xenauction/chosen/chosen-sprite.png) right top no-repeat;
+}
+.chzn-container-single .chzn-single abbr:hover {
+  background-position: right -11px;
+}
+.chzn-container-single .chzn-single div {
+  -webkit-border-radius: 0 4px 4px 0;
+  -moz-border-radius   : 0 4px 4px 0;
+  border-radius        : 0 4px 4px 0;
+  -moz-background-clip   : padding;
+  -webkit-background-clip: padding-box;
+  background-clip        : padding-box;
+  background: #ccc;
+  background-image: -webkit-gradient(linear, left bottom, left top, color-stop(0, #ccc), color-stop(0.6, #eee));
+  background-image: -webkit-linear-gradient(center bottom, #ccc 0%, #eee 60%);
+  background-image: -moz-linear-gradient(center bottom, #ccc 0%, #eee 60%);
+  background-image: -o-linear-gradient(bottom, #ccc 0%, #eee 60%);
+  background-image: -ms-linear-gradient(top, #cccccc 0%,#eeeeee 60%);
+  filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#cccccc', endColorstr='#eeeeee',GradientType=0 );
+  background-image: linear-gradient(top, #cccccc 0%,#eeeeee 60%);
+  border-left: 1px solid #aaa;
+  position: absolute;
+  right: 0;
+  top: 0;
+  display: block;
+  height: 100%;
+  width: 18px;
+}
+.chzn-container-single .chzn-single div b {
+  background: url('{xen:property imagePath}/../../js/xenauction/chosen/chosen-sprite.png') no-repeat 0 1px;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.chzn-container-single .chzn-search {
+  padding: 3px 4px;
+  position: relative;
+  margin: 0;
+  white-space: nowrap;
+  z-index: 1010;
+}
+.chzn-container-single .chzn-search input {
+  background: #fff url('{xen:property imagePath}/../../js/xenauction/chosen/chosen-sprite.png') no-repeat 100% -22px;
+  background: url('{xen:property imagePath}/../../js/xenauction/chosen/chosen-sprite.png') no-repeat 100% -22px, -webkit-gradient(linear, left bottom, left top, color-stop(0.85, white), color-stop(0.99, #eeeeee));
+  background: url('{xen:property imagePath}/../../js/xenauction/chosen/chosen-sprite.png') no-repeat 100% -22px, -webkit-linear-gradient(center bottom, white 85%, #eeeeee 99%);
+  background: url('{xen:property imagePath}/../../js/xenauction/chosen/chosen-sprite.png') no-repeat 100% -22px, -moz-linear-gradient(center bottom, white 85%, #eeeeee 99%);
+  background: url('{xen:property imagePath}/../../js/xenauction/chosen/chosen-sprite.png') no-repeat 100% -22px, -o-linear-gradient(bottom, white 85%, #eeeeee 99%);
+  background: url('{xen:property imagePath}/../../js/xenauction/chosen/chosen-sprite.png') no-repeat 100% -22px, -ms-linear-gradient(top, #ffffff 85%,#eeeeee 99%);
+  background: url('{xen:property imagePath}/../../js/xenauction/chosen/chosen-sprite.png') no-repeat 100% -22px, linear-gradient(top, #ffffff 85%,#eeeeee 99%);
+  margin: 1px 0;
+  padding: 4px 20px 4px 5px;
+  outline: 0;
+  border: 1px solid #aaa;
+  font-family: sans-serif;
+  font-size: 1em;
+}
+.chzn-container-single .chzn-drop {
+  -webkit-border-radius: 0 0 4px 4px;
+  -moz-border-radius   : 0 0 4px 4px;
+  border-radius        : 0 0 4px 4px;
+  -moz-background-clip   : padding;
+  -webkit-background-clip: padding-box;
+  background-clip        : padding-box;
+}
+/* @end */
+
+.chzn-container-single-nosearch .chzn-search input {
+  position: absolute;
+  left: -9000px;
+}
+
+/* @group Multi Chosen */
+.chzn-container-multi .chzn-choices {
+	{xen:property textCtrl}
+  cursor: text;
+  overflow: hidden;
+  height: auto !important;
+  height: 1%;
+  position: relative;
+}
+.chzn-container-multi .chzn-choices li {
+  float: left;
+  list-style: none;
+}
+.chzn-container-multi .chzn-choices .search-field {
+  white-space: nowrap;
+  margin: 0;
+  padding: 0;
+}
+.chzn-container-multi .chzn-choices .search-field input {
+  color: #666;
+  background: transparent !important;
+  border: 0 !important;
+  padding: 5px;
+  margin: 1px 0;
+  outline: 0;
+  -webkit-box-shadow: none;
+  -moz-box-shadow   : none;
+  -o-box-shadow     : none;
+  box-shadow        : none;
+}
+.chzn-container-multi .chzn-choices .search-field .default {
+  color: #999;
+}
+.chzn-container-multi .chzn-choices .search-choice {
+  -webkit-border-radius: 3px;
+  -moz-border-radius   : 3px;
+  border-radius        : 3px;
+  -moz-background-clip   : padding;
+  -webkit-background-clip: padding-box;
+  background-clip        : padding-box;
+  background-color: #e4e4e4;
+  background-image: -webkit-gradient(linear, left bottom, left top, color-stop(0, #e4e4e4), color-stop(0.7, #eeeeee));
+  background-image: -webkit-linear-gradient(center bottom, #e4e4e4 0%, #eeeeee 70%);
+  background-image: -moz-linear-gradient(center bottom, #e4e4e4 0%, #eeeeee 70%);
+  background-image: -o-linear-gradient(bottom, #e4e4e4 0%, #eeeeee 70%);
+  background-image: -ms-linear-gradient(top, #e4e4e4 0%,#eeeeee 70%);
+  filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#e4e4e4', endColorstr='#eeeeee',GradientType=0 );
+  background-image: linear-gradient(top, #e4e4e4 0%,#eeeeee 70%);
+  color: #333;
+  border: 1px solid #b4b4b4;
+  line-height: 13px;
+  padding: 3px 19px 3px 6px;
+  margin: 3px 0 3px 5px;
+  position: relative;
+}
+.chzn-container-multi .chzn-choices .search-choice span {
+  cursor: default;
+}
+.chzn-container-multi .chzn-choices .search-choice-focus {
+  background: #d4d4d4;
+}
+.chzn-container-multi .chzn-choices .search-choice .search-choice-close {
+  display: block;
+  position: absolute;
+  right: 3px;
+  top: 4px;
+  width: 12px;
+  height: 13px;
+  font-size: 1px;
+  background: url({xen:property imagePath}/../../js/xenauction/chosen/chosen-sprite.png) right top no-repeat;
+}
+.chzn-container-multi .chzn-choices .search-choice .search-choice-close:hover {
+  background-position: right -11px;
+}
+.chzn-container-multi .chzn-choices .search-choice-focus .search-choice-close {
+  background-position: right -11px;
+}
+/* @end */
+
+/* @group Results */
+.chzn-container .chzn-results {
+  margin: 0 4px 4px 0;
+  max-height: 190px;
+  padding: 0 0 0 4px;
+  position: relative;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+.chzn-container-multi .chzn-results {
+  margin: -1px 0 0;
+  padding: 0;
+}
+.chzn-container .chzn-results li {
+  display: none;
+  line-height: 80%;
+  padding: 7px 7px 8px;
+  margin: 0;
+  list-style: none;
+}
+.chzn-container .chzn-results .active-result {
+  cursor: pointer;
+  display: list-item;
+}
+.chzn-container .chzn-results .highlighted {
+  background: #3875d7;
+  color: #fff;
+}
+.chzn-container .chzn-results li em {
+  background: #feffde;
+  font-style: normal;
+}
+.chzn-container .chzn-results .highlighted em {
+  background: transparent;
+}
+.chzn-container .chzn-results .no-results {
+  background: #f4f4f4;
+  display: list-item;
+}
+.chzn-container .chzn-results .group-result {
+  cursor: default;
+  color: #999;
+  font-weight: bold;
+}
+.chzn-container .chzn-results .group-option {
+  padding-left: 20px;
+}
+.chzn-container-multi .chzn-drop .result-selected {
+  display: none;
+}
+/* @end */
+
+/* @group Active  */
+.chzn-container-active .chzn-single {
+  -webkit-box-shadow: 0 0 5px rgba(0,0,0,.3);
+  -moz-box-shadow   : 0 0 5px rgba(0,0,0,.3);
+  -o-box-shadow     : 0 0 5px rgba(0,0,0,.3);
+  box-shadow        : 0 0 5px rgba(0,0,0,.3);
+  border: 1px solid #5897fb;
+}
+.chzn-container-active .chzn-single-with-drop {
+  border: 1px solid #aaa;
+  -webkit-box-shadow: 0 1px 0 #fff inset;
+  -moz-box-shadow   : 0 1px 0 #fff inset;
+  -o-box-shadow     : 0 1px 0 #fff inset;
+  box-shadow        : 0 1px 0 #fff inset;
+  background-color: #eee;
+  background-image: -webkit-gradient(linear, left bottom, left top, color-stop(0, white), color-stop(0.5, #eeeeee));
+  background-image: -webkit-linear-gradient(center bottom, white 0%, #eeeeee 50%);
+  background-image: -moz-linear-gradient(center bottom, white 0%, #eeeeee 50%);
+  background-image: -o-linear-gradient(bottom, white 0%, #eeeeee 50%);
+  background-image: -ms-linear-gradient(top, #ffffff 0%,#eeeeee 50%);
+  filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#ffffff', endColorstr='#eeeeee',GradientType=0 );
+  background-image: linear-gradient(top, #ffffff 0%,#eeeeee 50%);
+  -webkit-border-bottom-left-radius : 0;
+  -webkit-border-bottom-right-radius: 0;
+  -moz-border-radius-bottomleft : 0;
+  -moz-border-radius-bottomright: 0;
+  border-bottom-left-radius : 0;
+  border-bottom-right-radius: 0;
+}
+.chzn-container-active .chzn-single-with-drop div {
+  background: transparent;
+  border-left: none;
+}
+.chzn-container-active .chzn-single-with-drop div b {
+  background-position: -18px 1px;
+}
+.chzn-container-active .chzn-choices {
+		{xen:property textCtrlFocus}
+}
+.chzn-container-active .chzn-choices .search-field input {
+  color: #111 !important;
+}
+/* @end */
+
+/* @group Disabled Support */
+.chzn-disabled {
+  cursor: default;
+  opacity:0.5 !important;
+}
+.chzn-disabled .chzn-single {
+  cursor: default;
+}
+.chzn-disabled .chzn-choices .search-choice .search-choice-close {
+  cursor: default;
+}
+
+/* @group Right to Left */
+.chzn-rtl { direction:rtl;text-align: right; }
+.chzn-rtl .chzn-single { padding-left: 0; padding-right: 8px; }
+.chzn-rtl .chzn-single span { margin-left: 26px; margin-right: 0; }
+.chzn-rtl .chzn-single div { 
+  left: 0; right: auto; 
+  border-left: none; border-right: 1px solid #aaaaaa;
+  -webkit-border-radius: 4px 0 0 4px;
+  -moz-border-radius   : 4px 0 0 4px;
+  border-radius        : 4px 0 0 4px; 
+}
+.chzn-rtl .chzn-choices li { float: right; }
+.chzn-rtl .chzn-choices .search-choice { padding: 3px 6px 3px 19px; margin: 3px 5px 3px 0; }
+.chzn-rtl .chzn-choices .search-choice .search-choice-close { left: 5px; right: auto; background-position: right top;}
+.chzn-rtl.chzn-container-single .chzn-results { margin-left: 4px; margin-right: 0; padding-left: 0; padding-right: 4px; }
+.chzn-rtl .chzn-results .group-option { padding-left: 0; padding-right: 20px; }
+.chzn-rtl.chzn-container-active .chzn-single-with-drop div { border-right: none; }
+.chzn-rtl .chzn-search input {
+  background: url('{xen:property imagePath}/../../js/xenauction/chosen/chosen-sprite.png') no-repeat -38px -22px, #ffffff;
+  background: url('{xen:property imagePath}/../../js/xenauction/chosen/chosen-sprite.png') no-repeat -38px -22px, -webkit-gradient(linear, left bottom, left top, color-stop(0.85, white), color-stop(0.99, #eeeeee));
+  background: url('{xen:property imagePath}/../../js/xenauction/chosen/chosen-sprite.png') no-repeat -38px -22px, -webkit-linear-gradient(center bottom, white 85%, #eeeeee 99%);  
+  background: url('{xen:property imagePath}/../../js/xenauction/chosen/chosen-sprite.png') no-repeat -38px -22px, -moz-linear-gradient(center bottom, white 85%, #eeeeee 99%);
+  background: url('{xen:property imagePath}/../../js/xenauction/chosen/chosen-sprite.png') no-repeat -38px -22px, -o-linear-gradient(bottom, white 85%, #eeeeee 99%);
+  background: url('{xen:property imagePath}/../../js/xenauction/chosen/chosen-sprite.png') no-repeat -38px -22px, -ms-linear-gradient(top, #ffffff 85%,#eeeeee 99%);
+  background: url('{xen:property imagePath}/../../js/xenauction/chosen/chosen-sprite.png') no-repeat -38px -22px, linear-gradient(top, #ffffff 85%,#eeeeee 99%);
+  padding: 4px 5px 4px 20px;
+}
+/* @end */
+]]></template>
+    <template title="auction_widget" version_id="17" version_string="1.2 RC 1"><![CDATA[<xen:if is="{$auctions}">
+
+	<xen:require js="js/xenauction/auctions.js" />
+	<xen:require css="auction_widget.css" />
+	
+	<div id="auctionWidgetWrap">
+		
+		<div id="auctionWidgetContent">
+
+			<a href="{xen:link auctions}" class="callToAction"><span>{xen:phrase view_more}</span></a>
+			
+			<h2>{xen:phrase random_auctions}</h2>
+			
+			<hr/>
+			
+			<div id="auctionWidgetOuter" class="primaryContent">
+				
+				<ul id="auctionWidget">
+					
+					<xen:foreach loop="$auctions" value="$auction">
+						<li class="secondaryContent">
+							<a href="{xen:link auctions/details, '', 'id={$auction.auction_id}'}" class="OverlayTrigger">
+								{xen:helper auction, image, $auction, 'm', 0}
+								<h3>
+									{$auction.title}
+								</h3>
+								<h5>
+									<xen:if is="{$auction.top_bid}">
+										<span class="muted">$</span>{xen:number $auction.top_bid}
+									<xen:elseif is="{$auction.min_bid}"/>
+										<span class="muted">$</span>{xen:number $auction.min_bid}
+									<xen:else/>
+										<span class="muted">$</span>{xen:number $auction.buy_now}
+									</xen:if>
+								</h5>
+							</a>
+						</li>
+					</xen:foreach>
+					
+				</ul>
+			</div>
+			
+		</div>
+		
+	</div>
+	
+	<script type="text/javascript">
+	<!--
+	new XenAuction.Widget();
+	-->
+	</script>
+	
+</xen:if>]]></template>
+    <template title="auction_widget.css" version_id="18" version_string="1.2.1"><![CDATA[#auctionWidgetWrap
+{
+	{xen:property sectionMain}
+}
+
+#auctionWidgetWrap hr
+{
+	border: 0;
+	height: 1px;
+	background-color: {xen:property primaryLighterStill};
+	margin: 5px 0;
+}
+
+#auctionWidgetWrap > #auctionWidgetContent > h2
+{
+	font-size: 16pt;
+}
+
+#auctionWidgetWrap .callToAction
+{
+	float: right;
+}
+
+#auctionWidgetOuter
+{
+	display: table;
+	margin: 0 auto;
+	border-bottom: 0 !important;
+}
+
+#auctionWidget
+{
+	max-height: 150px;
+	overflow: hidden;
+}
+
+#auctionWidget li
+{
+	display: block;
+	float: left;
+	margin: 10px;
+	padding: 0;
+	text-align: center;
+}
+
+#auctionWidget li .auctionImage
+{
+	border-top-left-radius: 4px;
+	border-top-right-radius: 4px;	
+	margin: auto;
+}
+
+#auctionWidget li h3
+{
+	font-weight: bold;
+	margin-top: 5px;
+}
+
+.auctionImage.size_m
+{
+	background-position: center;
+	background-repeat: no-repeat;
+	width: 120px;
+	height: 80px;
+}]]></template>
+  </templates>
+  <bb_code_media_sites/>
+  <template_modifications/>
+</addon>
